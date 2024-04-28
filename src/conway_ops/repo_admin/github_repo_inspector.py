@@ -1,6 +1,9 @@
 import requests                                             as _requests
 from dateutil                                               import parser as _parser
 
+
+from conway.application.application                         import Application
+
 from conway.util.yaml_utils                                 import YAML_Utils
 from conway_ops.repo_admin.repo_inspector                   import RepoInspector, CommitInfo, CommittedFileInfo
 
@@ -32,9 +35,9 @@ class GitHub_RepoInspector(RepoInspector):
         if len(self.owner) == 0:
             raise ValueError("No owner was included in parent url '" + str(parent_url) + "', so can't call Git Hub APIs")
         
-        # Get GitHub token to make authenticated calls
+        # Get GitHub token to make authenticated calls.
         #
-        SECRETS_PATH                                    = "C:/Alex/Code/conway_fork/secrets.yaml"
+        SECRETS_PATH                                    = Application.app().config.secrets_path()
         secrets_dict                                    = YAML_Utils().load(SECRETS_PATH)
         self.github_token                               = secrets_dict['secrets']['github_token']
 
@@ -92,6 +95,7 @@ class GitHub_RepoInspector(RepoInspector):
                              + f"\nFor the first, if using Conda, check {certificate_file}"
                              + f"\nFor the latter, login to GitHub as a user with access to the remote repos in question"
                              + f"\nand generate a token (in settings=>developer settings) and copy it to the secrets file for this repo.")  
+
         return data      
 
 

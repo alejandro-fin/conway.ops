@@ -1,7 +1,8 @@
+import os                                                           as _os
 
-from conway.application.application                                import Application
+from conway.application.application                                 import Application
 
-from conway.observability.logger                                   import Logger
+from conway.observability.logger                                    import Logger
 
 class NB_Logger(Logger):
     '''
@@ -30,7 +31,23 @@ class Chassis_NB_Application(Application):
     '''
     def __init__(self):
 
+        APP_NAME                                        = "ChassisNotebookApp"
+
         logger                                          = NB_Logger(activation_level=Logger.LEVEL_INFO)
           
-        super().__init__(logger)
+        # __file__ is something like 
+        #
+        #   'C:\Alex\Code\conway\conway.ops\src\notebooks\chassis_nb_application.py'
+        #
+        #
+        # So to get the project folder ("conway") we need to go 3 directories up
+        #
+        directory                                       = _os.path.dirname(__file__)
+
+        for idx in range(3):
+            directory                                   = _os.path.dirname(directory)
+        project_directory                               = directory   
+        config_path                                     = project_directory + "/config"     
+          
+        super().__init__(app_name=APP_NAME, config_path=config_path, logger=logger)
 

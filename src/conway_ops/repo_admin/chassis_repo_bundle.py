@@ -14,14 +14,11 @@ class Chassis_RepoBundle(RepoBundle):
         :return: The names of the repos comprising this :class:`RepoBundle`.
         :rtype: List[str]
         '''
-        REPO_conway_acceptance                         = "conway.acceptance"
-        REPO_conway_acceptance_DOCS                    = "conway.acceptance_docs"
-
         repo_info_l                                     = super().bundled_repos()
-        repo_info_l.append(RepoInfo(REPO_conway_acceptance,
+        repo_info_l.append(RepoInfo("conway", "acceptance",
                            "Source code for test framework available to applications built with the '" 
                                 + self.project_name + "'."))
-        repo_info_l.append(RepoInfo(REPO_conway_acceptance_DOCS,
+        repo_info_l.append(RepoInfo("conway", "acceptance.docs",
                            "Source code for documentation on test framework provided as part of the '" 
                                 + self.project_name + "'."))
 
