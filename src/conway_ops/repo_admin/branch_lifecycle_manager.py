@@ -1,8 +1,9 @@
-import git                                                          as _git
 import os                                                           as _os
+from pathlib                                                        import Path
 
 from conway_ops.repo_admin.repo_administration                      import RepoAdministration
 from conway_ops.repo_admin.repo_inspector_factory                   import RepoInspectorFactory
+from conway_ops.repo_admin.git_client                               import GitClient
 
 class BranchLifecycleManager(RepoAdministration):
 
@@ -178,7 +179,7 @@ class BranchLifecycleManager(RepoAdministration):
             working_dir                                 = self.local_root + "/" + repo_name
             _os.chdir(working_dir)
             self.log_info("Working in folder '" + working_dir + "'")
-            executor                                    = _git.cmd.Git(working_dir)
+            executor                                    = GitClient(working_dir)
 
             # First check if there is anything to commit. We check because if there is nothing to commit
             # and we try to commit, we will get error messages
@@ -199,7 +200,7 @@ class BranchLifecycleManager(RepoAdministration):
             working_dir                                 = self.local_root + "/" + repo_name
             _os.chdir(working_dir)
             self.log_info("Working in folder '" + working_dir + "'")
-            executor                                    = _git.cmd.Git(working_dir)
+            executor                                    = GitClient(working_dir)
 
             status1                                     = executor.execute("git checkout " + self.INTEGRATION_BRANCH)
             self.log_info("Checkout '" + self.INTEGRATION_BRANCH + "':\n" + str(status1))
@@ -235,7 +236,7 @@ class BranchLifecycleManager(RepoAdministration):
             working_dir                                 = self.local_root + "/" + repo_name
             _os.chdir(working_dir)
             self.log_info("Working in folder '" + working_dir + "'")
-            executor                                    = _git.cmd.Git(working_dir)
+            executor                                    = GitClient(working_dir)
 
             # First check if there is anything to commit. We check because if there is nothing to commit
             # and we try to commit, we will get error messages
@@ -284,7 +285,10 @@ class BranchLifecycleManager(RepoAdministration):
         It is created, though, to provide backup functionality: any push in the feature branch 
         '''
         for repo_name in self.repo_names():
-            executor                                    = _git.cmd.Git(self.local_root + "/" + repo_name)
+
+            repo_path                                   = self.local_root + "/" + repo_name
+
+            executor                                    = GitClient(repo_path)
             existing_branches                           = self.branches(repo_name)
 
             self.log_info("\n-----------" + repo_name + "-----------")
@@ -297,7 +301,7 @@ class BranchLifecycleManager(RepoAdministration):
                 # In this case create the branch, and set tracking in the remote
                
                 status1                                 = executor.execute(command = 'git checkout -b ' + str(feature_branch))
-                self.log_info("Checkout '" + str(feature_branch) + "':\n" + str(status1)) 
+                self.log_info("Checkout -b '" + str(feature_branch) + "':\n" + str(status1)) 
                 status2                                 = executor.execute(command = 'git push -u origin ' + str(feature_branch))
                 self.log_info("Remote tracking '" + str(feature_branch) + "':\n" + str(status2)) 
 
@@ -322,7 +326,7 @@ class BranchLifecycleManager(RepoAdministration):
         
         # If we get this far, then all work has been merged, so we can safely remove the branch
         for repo_name in self.repo_names():
-            executor                                    = _git.cmd.Git(self.local_root + "/" + repo_name)
+            executor                                    = GitClient(self.local_root + "/" + repo_name)
 
             self.log_info("\n-----------" + repo_name + "-----------")
 

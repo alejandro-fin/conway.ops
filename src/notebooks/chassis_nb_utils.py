@@ -22,7 +22,7 @@ class Chassis_NB_Utils(NotebookUtils):
 
         # __file__ is something like 
         #
-        #   'C:\Alex\Code\conway\conway.ops\src\notebooks\chassis_notebook_utils.py'
+        #   'C:\Alex\Code\conway\conway.ops\src\notebooks\chassis_nb_utils.py'
         #
         # So to get the chassis repo ("conway.ops") we need to go 2 directories up
         #

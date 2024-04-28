@@ -47,6 +47,7 @@ class NotebookUtils(abc.ABC):
         import random
         import xlsxwriter
         import git
+        import inspect
 
         self.time                       = time
         self.Path                       = Path
@@ -55,6 +56,7 @@ class NotebookUtils(abc.ABC):
         self.random                     = random
         self.xlsxwriter                 = xlsxwriter
         self.git                        = git
+        self.inspect                    = inspect
 
     def _import_conway_dependencies(self):
         '''
@@ -68,19 +70,28 @@ class NotebookUtils(abc.ABC):
         #   before this method is called
         #
         from conway_ops.repo_admin.branch_lifecycle_manager                     import BranchLifecycleManager
+        from conway_ops.repo_admin.repo_administration                          import RepoAdministration, GitUsage
         from conway_ops.repo_admin.chassis_repo_bundle                          import Chassis_RepoBundle
         from conway_ops.repo_admin.repo_bundle_subset                           import RepoBundleSubset
+        from conway_ops.scaffolding.scaffold_generator                          import ScaffoldGenerator
+        from conway_ops.scaffolding.scaffold_spec                               import ScaffoldSpec
         
         from conway.util.dataframe_utils                                        import DataFrameUtils
+        from conway.util.path_utils                                             import PathUtils
         from conway.util.timestamp                                              import Timestamp
         from conway.util.profiler                                               import Profiler
         from conway.database.data_accessor                                      import DataAccessor
         from conway.reports.report_writer                                       import ReportWriter
 
         self.BranchLifecycleManager             = BranchLifecycleManager
+        self.GitUsage                           = GitUsage
+        self.RepoAdministration                 = RepoAdministration
         self.Chassis_RepoBundle                 = Chassis_RepoBundle
         self.RepoBundleSubset                   = RepoBundleSubset
+        self.ScaffoldGenerator                  = ScaffoldGenerator
+        self.ScaffoldSpec                       = ScaffoldSpec
         self.DataFrameUtils                     = DataFrameUtils
+        self.PathUtils                          = PathUtils
         self.Timestamp                          = Timestamp
         self.Profiler                           = Profiler
         self.DataAccessor                       = DataAccessor
@@ -93,7 +104,8 @@ class NotebookUtils(abc.ABC):
         Remembers environmental information as part of self, and displays it.
         '''
         REPO_NAME                       = _os.path.basename(self.repo_directory)
-        REPO_BRANCH                     = _git.cmd.Git(self.repo_directory).execute("git rev-parse --abbrev-ref HEAD")
+        REPO_BRANCH                     = _git.cmd.Git(self.repo_directory).execute(command = ["git", "rev-parse", "--abbrev-ref", "HEAD"])#,
+                                                                                    #env     = _os.environ)
 
         APP_INSTALLATION_PATH           = _os.path.dirname(self.repo_directory) 
         APP_INSTALLATION                = _os.path.basename(APP_INSTALLATION_PATH)

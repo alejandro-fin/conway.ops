@@ -3,9 +3,9 @@ from conway.database.single_root_data_hub                      import SingleRoot
 class Repos_DataHub(SingleRootDataHub):
 
     '''
-    Class to assist operator to manage the multiple repos that comprise the Vulnerability Management solution
+    Class to assist operator to manage the multiple repos that comprise a ConwayApplication solution
 
-    :param str hub_handle: Folder or URL of the parent containing all applicatino-related GIT repos.
+    :param str hub_handle: Folder or URL of the parent containing all application-related GIT repos.
 
     '''
     def __init__(self, name: str, hub_handle: DataHubHandle):

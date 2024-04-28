@@ -4,7 +4,7 @@ class RepoStatics(abc.ABC):
 
     '''
     Represents a static enum collection of static variables that are used in the administration of GIT repos
-    associated to the ``vulnerability_management`` module.
+    associated to a Conway application.
     '''
     def __init__(self):
         pass
