@@ -2,10 +2,9 @@ import git
 import datetime as _dt
 
 from conway.observability.logger                                    import Logger
-from conway.util.timestamp                                          import Timestamp
 
 from conway_ops.repo_admin.repo_inspector                           import RepoInspector, CommitInfo, CommittedFileInfo
-from conway_ops.repo_admin.git_client                               import GitClient
+from conway_ops.util.git_client                                     import GitClient
 
 
 class FileSystem_RepoInspector(RepoInspector):

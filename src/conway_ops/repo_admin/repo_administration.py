@@ -1,104 +1,20 @@
 from pathlib                                                        import Path
-import os                                                           as _os
+
 import pandas                                                       as _pd
 import xlsxwriter
-from enum                                                           import Enum
+
 
 from conway.observability.logger                                    import Logger
-
 from conway.reports.report_writer                                   import ReportWriter
+from conway.util.yaml_utils                                         import YAML_Utils
 
+from conway_ops.onboarding.git_usage                                import GitUsage
 from conway_ops.repo_admin.repo_statics                             import RepoStatics
 from conway_ops.repo_admin.repo_inspector_factory                   import RepoInspectorFactory
 from conway_ops.repo_admin.repo_inspector                           import RepoInspector
-from conway_ops.repo_admin.filesystem_repo_inspector                import FileSystem_RepoInspector
-from conway_ops.repo_admin.repo_bundle                              import RepoBundle
-from conway_ops.repo_admin.git_client                               import GitClient
-from conway_ops.scaffolding.scaffold_generator                      import ScaffoldGenerator
+from conway_ops.util.git_client                                     import GitClient
 
 
-class GitUsage (Enum):
-
-    no_git_usage                                    = 0
-    git_local_only                                  = 1
-    git_local_and_remote                            = 2
-
-
-class _ProjectCreationContext:
-
-    def __init__(self, repo_admin, repo_name, git_usage=GitUsage.git_local_and_remote, work_branch_name=None):
-        '''
-        This class is a context manager intended to be used when creating a new repo for a project.
-        It takes care of the GIT-related aspects of creating such a repo, so that the logic surrounded by this
-        context manager can focus on the "functional" aspects, i.e., populating the content of interest in 
-        the filesystem's folder for the repo (what in GIT corresponds to the work directory)
-        '''
-        self.repo_admin                             = repo_admin
-        self.repo_name                              = repo_name
-        self.git_usage                              = git_usage
-        self.work_branch_name                       = work_branch_name
-
-        # These are created upon entering the context
-        self.repos_root                             = None
-        self.git_repo                               = None
-
-        # These are set by the business logic running within the context
-        self.files_l                                = None
-
-    def __enter__(self):
-        '''
-        Returns self
-        
-        '''
-        local_url                                   = self.repo_admin.local_root + "/" + self.repo_name
-        Path(local_url).mkdir(parents=True, exist_ok=False)        
-
-        if self.git_usage == GitUsage.git_local_and_remote:
-            self.repos_root                         = self.repo_admin.remote_root
-            # Create folders. They shouldn't already exist, since we are creating a brand new project
-            Path(self.repos_root + "/" + self.repo_name).mkdir(parents=True, exist_ok=False)
-            inspector                               = FileSystem_RepoInspector(self.repos_root, self.repo_name)
-            # This creates the master branch (in remote)
-            self.git_repo                           = inspector.init_repo() 
-        elif self.git_usage == GitUsage.git_local_only:
-            self.repos_root                         = self.repo_admin.local_root
-            inspector                               = FileSystem_RepoInspector(self.repos_root, self.repo_name)
-            # This creates the master branch (in local)
-            self.git_repo                           = inspector.init_repo() 
-        else:
-            self.repos_root                         = self.repo_admin.local_root
-            self.git_repo                           = None
-
-        return self
-
-    def __exit__(self, exc_type, exc_value, exc_tb):
-
-        if not exc_value is None: # Propagate the exception. TODO: Maybe should put cleanup code for any GIT repos previously created
-            return False
-
-        if self.git_usage != GitUsage.no_git_usage:
-            self.git_repo.index.add(self.files_l)
-            self.git_repo.index.commit("Initial commit")            
-
-            master_branch                           = self.git_repo.active_branch
-            work_branch                             = self.git_repo.create_head(self.work_branch_name)
-            work_branch.checkout()
-
-            if self.git_usage == GitUsage.git_local_and_remote:
-                # In this case the self.git_repo is the remote, and need to create the local
-                local_url                           = self.repo_admin.local_root + "/" + self.repo_name
-
-                local_repo                          = self.git_repo.clone(local_url)
-
-                # Now come back to master branch on the remote, so that if local tries to do a git push,
-                # the push succeeds (i.e., avoid errors of pushing to a remote branch arising from that branch
-                # being checked out in the remote, so move remote to a branch to which pushes are not made, i.e., to master).
-                #
-                master_branch.checkout()
-
-
-
-from conway.util.yaml_utils                                     import YAML_Utils
 
 class RepoAdministration():
 
@@ -133,98 +49,7 @@ class RepoAdministration():
             self.github_token                           = secrets_dict['secrets']['github_token']  
         else:
             self.github_token                           = None          
-
-    def create_project(self, project_name, work_branch_name, scaffold_spec=None, git_usage=GitUsage.git_local_and_remote):
-        '''
-        Creates all the repos required for a project as per standard patterns of the 
-        :class:``RepoBundle``.
-
-        :param str project_name: name of the project (i.e., application) for which repos must be created
-        :param str work_branch_name: name of the branch in which work will be done, i.e., a branch that exists
-            both in the local and the remote and which is how the local pushes work to the remote.
-            NB: By default, the master branch only exists in the remote, hence the need for the work_branch_name.
-
-        :param ScaffoldSpec scaffold_spec: Object encapsulating the code patterns for which sample code should be included
-            in the newly created project. By default is is None, in which case the only files generated in the new
-            project will be a ``README.md`` and ``.gitignore``.
-
-        :return: a :class:``RepoBundle`` with information about all the repos created for project ``project_name``.
-        :rtype: RepoBundle
-        '''
-        bundle                                          = RepoBundle(project_name)
-        created_files_l                                 = []
-        for repo_info in bundle.bundled_repos():
-
-            with _ProjectCreationContext(repo_admin=self, repo_name=repo_info.name, 
-                                         git_usage          = git_usage,
-                                         work_branch_name   = work_branch_name) as ctx:
-                
-                ctx.files_l                            = self._populate_filesystem_repo(repos_root         = ctx.repos_root, 
-                                                                                            repo_info       = repo_info,
-                                                                                            scaffold_spec   = scaffold_spec)
-                created_files_l.append(ctx.files_l)
-
-        # Now generate the config folder, which is external to all repos since it is runtime configuration that must
-        # be set by the operator, not the developer
-        # It only can be generated when there is a scaffolding spec
-        if not scaffold_spec is None:
-            config_root                                 = f"{ctx.repos_root}/config"
-            scaffold_gen                                = ScaffoldGenerator(config_root, scaffold_spec)
-            config_files_l                              = [_os.path.relpath(f, start= config_root) for f in scaffold_gen.generate("config")]
-            created_files_l.append(config_files_l)
-
-        return bundle # return bundle, created_files_l
-    
-
-    
-    def _populate_filesystem_repo(self, repos_root, repo_info, scaffold_spec):
-        '''
-        Populates all generated content for a new repo.
-
-        This method is supposed to be called within the ``_ProjectCreationContext`` context manager, so that
-        all its preconditions are met. For example, that certain GIT repos already have been created by the
-        time this method is called, since they can't be created after this method is called (would result in a
-        GIT error, as the working folder would not be empty after this method runs)
-        '''
-        repo_url                                   = f"{repos_root}/{repo_info.name}"
-
-        Path(repo_url).mkdir(parents=True, exist_ok=True)
  
-        if not scaffold_spec is None:
-            scaffold_gen                                = ScaffoldGenerator(repo_url, scaffold_spec)
-            # The ScaffoldGenerator will return a list of generated files, with their absolute path. However, this method
-            # needs to strip the root folder for the repo, to avoid exceptions, since GIT operations need the relative
-            # path of the files under the repo.
-            #
-            # For example, the ScaffoldGenerator may return paths like:
-            # 
-            #       /mnt/c/Users/aleja/Documents/Code/conway/conway.scenarios/8101/ACTUALS@latest/bundled_repos_remote/cash.svc/.gitignore
-            #
-            #  but this method would need to return only the relative path under the "cash.svc" repo:
-            #
-            #       .gitignore
-            #
-            files_l                                     = [_os.path.relpath(f, start= repo_url) for f in scaffold_gen.generate(repo_info.subproject)]
-        else:
-            # Avoid having an empty repo, so that it has a head and we can create branches.
-            # Accomplish that by adding a scaffold README.md and a scaffold .gitignore
-            README_FILENAME                         = "README.md"
-            with open(f"{repo_url}/{README_FILENAME}", 'w') as f:
-                f.write(f"{repo_info.description} for application '{repo_info.name}'.\n")
-
-            GIT_IGNORE_FILENAME                     = ".gitignore"
-            with open(f"{repo_url}/{GIT_IGNORE_FILENAME}", 'w') as f:
-                for line in self._git_ignore_content():
-                    f.write(line + "\n")
-
-            files_l                                 =  [README_FILENAME, GIT_IGNORE_FILENAME]
-
-        return files_l
-    
-
-
-
-    
     def branches(self, repo_name):
         '''
         :return: branches in local repo
@@ -280,7 +105,7 @@ class RepoAdministration():
         inspector                                   = RepoInspectorFactory.findInspector(self.local_root, repo_name)
         return inspector.current_branch()
 
-    def checkout_branch(self, branch_name, repos_in_scope_l, local=True):
+    def DEPRECATED_checkout_branch(self, branch_name, repos_in_scope_l, local=True):
         '''
         For GIT repos in scope, switches them all to the branch given by ``branch_name``, provided that:
 
@@ -344,7 +169,7 @@ class RepoAdministration():
             print("\n-----------" + repo_name + "-----------\n")
             print("\tStatus:\t\t" + str(status))
 
-    def create_repo_report(self, publications_folder, 
+    def _create_repo_report(self, publications_folder, 
                            repos_in_scope_l             = None, 
                            git_usage                    = GitUsage.git_local_and_remote,
                            mask_nondeterministic_data   = False):
@@ -406,7 +231,7 @@ class RepoAdministration():
                     log_df[RepoStatics.COMMIT_HASH_COL]         = MASKED_MSG
                     log_df[RepoStatics.COMMIT_AUTHOR_COL]       = MASKED_MSG
 
-                sheet_name                                      = RepoAdministration.worksheet_for_log(repo_name, 
+                sheet_name                                      = RepoAdministration._worksheet_for_log(repo_name, 
                                                                                                        instance_type)
                 worksheet                                       = workbook.add_worksheet(sheet_name)
                 widths_dict                                     = {RepoStatics.COMMIT_DATE_COL:             30,
@@ -419,12 +244,12 @@ class RepoAdministration():
                                                         
         workbook.close()
 
-    def worksheet_for_log(repo_name, instance_type):
+    def _worksheet_for_log(repo_name, instance_type):
         '''
         :param str instance_type:  Either ``RepoStatics.LOCAL_REPO`` or ``RepoStatics.REMOTE_REPO``
         :param str repo_name: Name of the repo whose logs are to be persisted in the worksheet whose name is computed
             by this method.
-        :return: The worksheets used by the ``create_repo_report`` method to save log information for the repo
+        :return: The worksheets used by the ``self._create_repo_report`` method to save log information for the repo
             identified by ``repo_name`` for the given ``instance_type``
         :rtype: str
         '''
@@ -492,7 +317,7 @@ class RepoAdministration():
 
         return result_df
     
-    def repo_logs(self, git_usage, repos_in_scope_l=None):
+    def _repo_logs(self, git_usage, repos_in_scope_l=None):
         '''
         :param GitUsage get_usage: enum used to determine which GIT areas were created, if any, to scope the report to the GIT
         areas actually used.

@@ -11,7 +11,7 @@ CONWAY_ROOT_FORK            = CODING_ROOT + "/conway_fork"
 REMOTE_CONWAY_FORK_ROOT     ="https://github.com/alejandro-fin/"
 CONWAY_LOCAL_REPOS          = ["conway.svc", "conway.acceptance", "conway.ops", "conway.test", "conway.scenarios"]
 
-
+from conway.util.command_parser                                 import CommandParser
 from conway.util.dataframe_utils                                import DataFrameUtils
 from conway.util.profiler                                       import Profiler
 from conway.util.timestamp                                      import Timestamp
@@ -33,7 +33,11 @@ class Troubleshooter():
         #
         with Profiler("Troubleshooting"):
             # self.some_other_thing_to_do()
-            self.troubleshoot_repo_report()
+            #self.troubleshoot_repo_report()
+
+            s = 'git config --local user.name "alejandro-fin"'
+            args_list                                           = CommandParser().get_argument_list(s)
+            print(args_list)
         
     def troubleshoot_repo_report(self):
         '''

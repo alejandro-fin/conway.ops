@@ -1,5 +1,5 @@
 
-from conway_ops.repo_admin.repo_bundle         import RepoBundle
+from conway_ops.onboarding.repo_bundle        import RepoBundle
 
 
 class RepoBundleSubset(RepoBundle):

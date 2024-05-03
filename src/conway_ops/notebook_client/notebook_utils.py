@@ -71,11 +71,14 @@ class NotebookUtils(abc.ABC):
         #
         from conway_ops.repo_admin.branch_lifecycle_manager                     import BranchLifecycleManager
         from conway_ops.repo_admin.repo_administration                          import RepoAdministration, GitUsage
-        from conway_ops.repo_admin.chassis_repo_bundle                          import Chassis_RepoBundle
-        from conway_ops.repo_admin.repo_bundle_subset                           import RepoBundleSubset
+        from conway_ops.onboarding.chassis_repo_bundle                          import Chassis_RepoBundle
+        from conway_ops.onboarding.repo_bundle_subset                           import RepoBundleSubset
+        from conway_ops.onboarding.repo_setup                                   import RepoSetup
         from conway_ops.scaffolding.scaffold_generator                          import ScaffoldGenerator
         from conway_ops.scaffolding.scaffold_spec                               import ScaffoldSpec
+        from conway_ops.util.git_client                                         import GitClient
         
+        from conway.application.application                                     import Application
         from conway.util.dataframe_utils                                        import DataFrameUtils
         from conway.util.path_utils                                             import PathUtils
         from conway.util.timestamp                                              import Timestamp
@@ -88,8 +91,12 @@ class NotebookUtils(abc.ABC):
         self.RepoAdministration                 = RepoAdministration
         self.Chassis_RepoBundle                 = Chassis_RepoBundle
         self.RepoBundleSubset                   = RepoBundleSubset
+        self.RepoSetup                          = RepoSetup
         self.ScaffoldGenerator                  = ScaffoldGenerator
         self.ScaffoldSpec                       = ScaffoldSpec
+        self.GitClient                          = GitClient
+
+        self.Application                        = Application
         self.DataFrameUtils                     = DataFrameUtils
         self.PathUtils                          = PathUtils
         self.Timestamp                          = Timestamp
@@ -117,8 +124,8 @@ class NotebookUtils(abc.ABC):
 
         self.repo_name                  = REPO_NAME
         self.repo_branch                = REPO_BRANCH
-        self.tvm_installation           = APP_INSTALLATION
-        self.tvm_installation_path      = APP_INSTALLATION_PATH
+        self.installation               = APP_INSTALLATION
+        self.installation_path          = APP_INSTALLATION_PATH
 
         MARGIN                    = "    "
         # For color codes, see https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797

@@ -1,9 +1,8 @@
 import os                                                           as _os
-from pathlib                                                        import Path
 
 from conway_ops.repo_admin.repo_administration                      import RepoAdministration
 from conway_ops.repo_admin.repo_inspector_factory                   import RepoInspectorFactory
-from conway_ops.repo_admin.git_client                               import GitClient
+from conway_ops.util.git_client                                     import GitClient
 
 class BranchLifecycleManager(RepoAdministration):
 
@@ -161,8 +160,6 @@ class BranchLifecycleManager(RepoAdministration):
 
             # Make sure to come back to the operate branch (as above command moved us to the integration branch)
             local_inspector.checkout(self.OPERATE_BRANCH)
-
-
 
     def complete_feature(self, feature_branch, remove_feature_branch=False):
         '''

@@ -1,5 +1,5 @@
 
-from conway_ops.repo_admin.repo_bundle         import RepoBundle, RepoInfo
+from conway_ops.onboarding.repo_bundle         import RepoBundle, RepoInfo
 
 class Chassis_RepoBundle(RepoBundle):
 
