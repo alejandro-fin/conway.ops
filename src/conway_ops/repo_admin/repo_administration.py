@@ -261,7 +261,7 @@ class RepoAdministration():
         return sheet_name
 
 
-    def repo_stats(self, git_usage, repos_in_scope_l=None):
+    def repo_stats(self, git_usage=GitUsage.git_local_and_remote, repos_in_scope_l=None):
         '''
         :param list[str] repos_in_scope_l: A list of names for GIT repos for which stats are requested. If set to None, 
             then it will default to provide stats for names of ``self.repo_bundle.bundled_repos()``

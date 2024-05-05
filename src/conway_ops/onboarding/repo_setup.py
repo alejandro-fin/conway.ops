@@ -2,6 +2,7 @@ from git                                                            import Repo
 
 from conway.util.toml_utils                                         import TOML_Utils
 
+from conway_ops.util.git_branches                                   import GitBranches
 from conway_ops.util.git_client                                     import GitClient
 
 
@@ -32,7 +33,7 @@ class RepoSetup():
         self.profile_path                               = f"{sdlc_root}/sdlc.profiles/{profile_name}/profile.toml" 
         self.profile                                    = TOML_Utils().load(self.profile_path)
 
-    def setup(self, project):
+    def setup(self, project, filter=None):
         '''
         For the given project, it clones and configures all repos for that project that are specified in 
         the user profile self.profile_name.
@@ -41,9 +42,14 @@ class RepoSetup():
 
         :param str project: name of the project to set up. Must be a project that appears in 
                             self.profile["local_development"]
+        :param list[str] filter: optional parameter with the names of the repos to set up. If set to `None` (the
+                            default value), then all repos in `self.profile` for `project` will be set up.
+                            As a boundary case, if `filter` mentions a repo that is not in `self.profile`, then it is
+                            ignored.
 
         '''
         P                                               = self.profile
+        GB                                              = GitBranches
 
         GH_ORGANIZATION                                 = P["git"]["github_organization"]
   
@@ -57,28 +63,31 @@ class RepoSetup():
         # Step 1: clone all applicable repos
         #
         cloned_repo_l = []
-        for some_repo_name in REPO_LIST:
+        repos_to_clone                                  = REPO_LIST if filter is None else [n for n in REPO_LIST if n in filter] 
+        for some_repo_name in repos_to_clone:
 
             cloned_repo                                 = Repo.clone_from(f"{REMOTE_ROOT}/{some_repo_name}.git", 
                                                                       f"{LOCAL_ROOT}/{project}/{some_repo_name}")
             cloned_repo_l.append(cloned_repo)
 
-        # Step 2:  create working branch
+        # Step 2:  create working branch and integration branch
         #
-        for some_repo in cloned_repo_l:
+        branches_to_create                              = [GB.INTEGRATION_BRANCH.value, GB.OPERATE_BRANCH.value, WORKING_BRANCH]
+        for branch in branches_to_create:
+            for some_repo in cloned_repo_l:
 
-            executor                                    = GitClient(some_repo.working_dir)
-            # Only create branch with '-b' option if it already exists.
-            if executor.execute(command                 = f"git branch --list {WORKING_BRANCH}") == "":
-                executor.execute(command                = f"git checkout -b {WORKING_BRANCH}")
-            else:
-                executor.execute(command                = f"git checkout {WORKING_BRANCH}")
+                executor                                = GitClient(some_repo.working_dir)
+                # Only create branch with '-b' option if it already exists.
+                if executor.execute(command             = f"git branch --list {branch}") == "":
+                    executor.execute(command            = f"git checkout -b {branch}")
+                else:
+                    executor.execute(command            = f"git checkout {branch}")
 
-            # Check if branch exists in remote. If not, push local branch. If yes, set it as the upstream.
-            if executor.execute(command                 = f"git ls-remote --heads origin {WORKING_BRANCH}") == "":
-                executor.execute(command                = f"git push origin -u {WORKING_BRANCH}")
-            else:
-                executor.execute(command                = f"git branch --set-upstream-to=origin/{WORKING_BRANCH} {WORKING_BRANCH}")
+                # Check if branch exists in remote. If not, push local branch. If yes, set it as the upstream.
+                if executor.execute(command             = f"git ls-remote --heads origin {branch}") == "":
+                    executor.execute(command            = f"git push origin -u {branch}")
+                else:
+                    executor.execute(command            = f"git branch --set-upstream-to=origin/{branch} {branch}")
 
         # Step 3: configure repos
         #
