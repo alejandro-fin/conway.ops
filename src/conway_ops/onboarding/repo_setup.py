@@ -33,7 +33,7 @@ class RepoSetup():
         self.profile_path                               = f"{sdlc_root}/sdlc.profiles/{profile_name}/profile.toml" 
         self.profile                                    = TOML_Utils().load(self.profile_path)
 
-    def setup(self, project, filter=None):
+    def setup(self, project, filter=None, operate=False):
         '''
         For the given project, it clones and configures all repos for that project that are specified in 
         the user profile self.profile_name.
@@ -41,11 +41,13 @@ class RepoSetup():
         The repos are created in a project folder under the profile's root folder for local development.
 
         :param str project: name of the project to set up. Must be a project that appears in 
-                            self.profile["local_development"]
+                            self.profile["projects"]
         :param list[str] filter: optional parameter with the names of the repos to set up. If set to `None` (the
                             default value), then all repos in `self.profile` for `project` will be set up.
                             As a boundary case, if `filter` mentions a repo that is not in `self.profile`, then it is
                             ignored.
+        :param bool operate: optional paramter. If True, the setup will be made for an operate installation of the project.
+                            By default is is False, in which case a development setup will be made.
 
         '''
         P                                               = self.profile
@@ -53,9 +55,17 @@ class RepoSetup():
 
         GH_ORGANIZATION                                 = P["git"]["github_organization"]
   
-        REPO_LIST                                       = P["local_development"][project]
-        LOCAL_ROOT                                      = P["local_development"]["root"]
-        WORKING_BRANCH                                  = P["git"]["working_branch"]
+        REPO_LIST                                       = P["projects"][project]
+        
+        if operate:
+            LOCAL_ROOT                                  = P["operate"]["operate_root"]
+            WORKING_BRANCH                              = GB.OPERATE_BRANCH.value
+            BRANCHES_TO_CREATE                          = [GB.OPERATE_BRANCH.value]
+        else:
+            LOCAL_ROOT                                  = P["local_development"]["dev_root"]
+            WORKING_BRANCH                              = P["git"]["working_branch"]
+            BRANCHES_TO_CREATE                          = [GB.INTEGRATION_BRANCH.value, WORKING_BRANCH]
+
         USER                                            = P["git"]["user"]["name"]
 
         REMOTE_ROOT                                     = f"https://{USER}@github.com/{GH_ORGANIZATION}"
@@ -72,8 +82,7 @@ class RepoSetup():
 
         # Step 2:  create working branch and integration branch
         #
-        branches_to_create                              = [GB.INTEGRATION_BRANCH.value, GB.OPERATE_BRANCH.value, WORKING_BRANCH]
-        for branch in branches_to_create:
+        for branch in BRANCHES_TO_CREATE:
             for some_repo in cloned_repo_l:
 
                 executor                                = GitClient(some_repo.working_dir)
