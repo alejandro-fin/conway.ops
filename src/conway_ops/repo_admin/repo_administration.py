@@ -96,7 +96,7 @@ class RepoAdministration():
         :return: names of all the repos in this :class:`RepoAdministration`'s repo bundle.
         :rtype: list[str]
         '''
-        return [repo_info.name for repo_info in self.repo_bundle.bundled_repos()]
+        return sorted([repo_info.name for repo_info in self.repo_bundle.bundled_repos()])
        
     def current_local_branch(self, repo_name):
         '''
