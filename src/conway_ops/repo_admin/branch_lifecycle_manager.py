@@ -1,5 +1,7 @@
 import os                                                           as _os
 
+from conway.application.application                                 import Application
+
 from conway_ops.repo_admin.repo_administration                      import RepoAdministration
 from conway_ops.repo_admin.repo_inspector_factory                   import RepoInspectorFactory
 from conway_ops.util.git_branches                                   import GitBranches
@@ -85,10 +87,18 @@ class BranchLifecycleManager(RepoAdministration):
 
             inspector                                   = RepoInspectorFactory.findInspector(self.remote_root,
                                                                                              repo_name)
+            app_name                                    = Application.app().app_name
+            master                                      = GB.MASTER_BRANCH.value
+            integration                                 = GB.INTEGRATION_BRANCH.value
+            inspector.pull_request(from_branch          = master, 
+                                   to_branch            = integration,
+                                   title                = f"Merge {master} -> {integration}",
+                                   body                 = f"Automated PR creation by {app_name}")
             
-            inspector.pull_request(from_branch = GB.MASTER_BRANCH.value, to_branch = GB.INTEGRATION_BRANCH.value)
-
-            inspector.pull_request(from_branch = GB.INTEGRATION_BRANCH.value, to_branch = GB.MASTER_BRANCH.value)
+            inspector.pull_request(from_branch          = integration, 
+                                   to_branch            = master,
+                                   title                = f"Merge {integration} -> {master}",
+                                   body                 = f"Automated PR creation by {app_name}")
 
     def publish_release(self):
         '''

@@ -33,10 +33,10 @@ class RepoSetup():
         self.profile_path                               = f"{sdlc_root}/sdlc.profiles/{profile_name}/profile.toml" 
         self.profile                                    = TOML_Utils().load(self.profile_path)
 
-    def setup(self, project, filter=None, operate=False):
+    def setup(self, project, filter=None, operate=False, root_folder=None):
         '''
         For the given project, it clones and configures all repos for that project that are specified in 
-        the user profile self.profile_name.
+        the user profile `self.profile_name`.
 
         The repos are created in a project folder under the profile's root folder for local development.
 
@@ -46,8 +46,12 @@ class RepoSetup():
                             default value), then all repos in `self.profile` for `project` will be set up.
                             As a boundary case, if `filter` mentions a repo that is not in `self.profile`, then it is
                             ignored.
-        :param bool operate: optional paramter. If True, the setup will be made for an operate installation of the project.
+        :param bool operate: optional parameter. If True, the setup will be made for an operate installation of the project.
                             By default is is False, in which case a development setup will be made.
+        :param str root_folder: optional parameter, that defaults to None. If not None, this is the root folder in the
+                            local machine under which the to create a project folder called `project`, beneath which
+                            repos for `project` will get cloned. If it is None, the project folder will be 
+                            as specified by the suer profile `self.profile_name` 
 
         '''
         P                                               = self.profile
@@ -58,11 +62,11 @@ class RepoSetup():
         REPO_LIST                                       = P["projects"][project]
         
         if operate:
-            LOCAL_ROOT                                  = P["operate"]["operate_root"]
+            LOCAL_ROOT                                  = P["operate"]["operate_root"] if root_folder is None else root_folder
             WORKING_BRANCH                              = GB.OPERATE_BRANCH.value
             BRANCHES_TO_CREATE                          = [GB.OPERATE_BRANCH.value]
         else:
-            LOCAL_ROOT                                  = P["local_development"]["dev_root"]
+            LOCAL_ROOT                                  = P["local_development"]["dev_root"] if root_folder is None else root_folder
             WORKING_BRANCH                              = P["git"]["working_branch"]
             BRANCHES_TO_CREATE                          = [GB.INTEGRATION_BRANCH.value, WORKING_BRANCH]
 
@@ -73,16 +77,24 @@ class RepoSetup():
         # Step 1: clone all applicable repos
         #
         cloned_repo_l = []
+
+        # Per CCL policy, we don't want to clone the master branch, since it should never exist locally.
+        # Therefore have to clone a different branch and only bring in that branch during the cloning.
+        branch_to_clone                                 = BRANCHES_TO_CREATE[0]
+        kwargs                                          = {"branch": branch_to_clone}
+
+
         repos_to_clone                                  = REPO_LIST if filter is None else [n for n in REPO_LIST if n in filter] 
         for some_repo_name in repos_to_clone:
 
             cloned_repo                                 = Repo.clone_from(f"{REMOTE_ROOT}/{some_repo_name}.git", 
-                                                                      f"{LOCAL_ROOT}/{project}/{some_repo_name}")
+                                                                      f"{LOCAL_ROOT}/{project}/{some_repo_name}",
+                                                                      **kwargs)
             cloned_repo_l.append(cloned_repo)
 
-        # Step 2:  create working branch and integration branch
+        # Step 2:  Now that the first branch was created as part of cloning the repo, create any additional branches
         #
-        for branch in BRANCHES_TO_CREATE:
+        for branch in BRANCHES_TO_CREATE[1:]:
             for some_repo in cloned_repo_l:
 
                 executor                                = GitClient(some_repo.working_dir)

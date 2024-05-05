@@ -13,7 +13,8 @@ class GitHub_RepoInspector(RepoInspector):
     Utility class that is able to execute GIT commands for public repos located in GitHub
 
     :param str parent_url: A string identifying the location under which the repo of interest lives as
-        a "subfolder" or "sub resource". May be a path to the local file system or the URL to a remote server.
+        a "subfolder" or "sub resource". It is expected to be the URL to a remote server, such as GitHub URL
+        to a GitHub organization or user account.
     :param str repo_name: A string identifying the name of the repo of interest, as a "subfolder"
         or "sub resource" under the ``parent_url``.
 
@@ -41,8 +42,8 @@ class GitHub_RepoInspector(RepoInspector):
         secrets_dict                                    = YAML_Utils().load(SECRETS_PATH)
         self.github_token                               = secrets_dict['secrets']['github_token']
 
-    GIT_HUB_API                                         = "https://api.github.com"
-    
+        #self.github_api_url                             = f"https://{self.owner}@api.github.com"
+        self.github_api_url                             = f"https://api.github.com"
 
     def _get_resource(self, resource_path):
         '''
@@ -53,11 +54,26 @@ class GitHub_RepoInspector(RepoInspector):
         :return: A Json representation of the resource as given by the GitHub API
         :rtype: str
         '''
-        root_path                           = self.GIT_HUB_API + "/repos/" + self.owner + "/" + self.repo_name
+        root_path                           = f"{self.github_api_url}/repos/{self.owner}/{self.repo_name}"
         url                                 = root_path + resource_path
 
         return self._get_from_url(url)     
     
+    def _post_resource(self, resource_path, resource_data):
+        '''
+        Invokes the Git Hub API to get information about the repo associated to this inspector.
+
+        :param str resource_path: Indicates the path of a desired resource to create or update, under the URL for the
+            repo for which self is an inspector. Examples: "/commits/master", "/branches", "/pulls"
+        :param dict body: payload to submit in the POST request
+        :return: A Json representation of the resource as given by the GitHub API
+        :rtype: str
+        '''
+        root_path                           = f"{self.github_api_url}/repos/{self.owner}/{self.repo_name}"
+        url                                 = root_path + resource_path
+
+        return self._post_to_url(url, resource_data)     
+
     def _get_from_url(self, url):
         '''
         Invokes the URL to get information about the repo associated to this inspector.
@@ -67,6 +83,7 @@ class GitHub_RepoInspector(RepoInspector):
         :rtype: str
         '''
         headers = {
+            
             'Authorization': 'Bearer ' + self.github_token,
             'Content-Type' : 'application/json',
             'Accept'       : 'application/json'
@@ -75,7 +92,7 @@ class GitHub_RepoInspector(RepoInspector):
             response                        = _requests.request(method          = 'GET', 
                                                                 url             = url, 
                                                                 params          = {}, 
-                                                                data            = '', \
+                                                                json            = {},
                                                                 headers         = headers, 
                                                                 timeout         = 20,
                                                                 verify          = True) 
@@ -97,6 +114,57 @@ class GitHub_RepoInspector(RepoInspector):
                              + f"\nand generate a token (in settings=>developer settings) and copy it to the secrets file for this repo.")  
 
         return data      
+    
+
+    def _post_to_url(self, url, body):
+        '''
+        Makes an HTTP POST request to the URL to post information to the repo associated to this inspector.
+
+        :param str url: Indicates the absolute url in the GitHub API. 
+        :param dict body: payload to submit in the POST request
+        :return: A Json representation of the resource as given by the GitHub API
+        :rtype: str
+        '''
+        headers = {
+            'Authorization': 'Bearer ' + self.github_token,
+            'Content-Type' : 'application/json',
+            # GOTCHA:
+            #       Painfully found that GitHub post APIs will only work with the "vnd.github*" MIME types
+            #'Accept'       : 'application/json'
+            'Accept'        : 'application/vnd.github+json'
+            
+        }
+        try:
+            response                        = _requests.request(method          = 'POST', 
+                                                                url             = url, 
+                                                                params          = {}, 
+                                                                json            = body,
+                                                                headers         = headers, 
+                                                                timeout         = 20,
+                                                                verify          = True) 
+
+            data                            = response.json()
+
+        except Exception as ex:
+            raise ValueError("Problem connecting to Git Hub. Error is: " + str(ex))
+
+        # GOTCHA
+        #   When creating resources with HTTP POST, a response status of 201 is expected, not 200
+        #if response.status_code != 200:
+        if response.status_code != 201:
+            certificate_file                = f"<YOUR CONDA INSTALL ROOT>/envs/<YOUR CONDA ENVIRONMENT>/lib/site-packages/certifi/cacert.pem"
+                         
+            raise ValueError(f"Error status {response.status_code} from doing: POST on '{url}'."
+                             + f"\nThis often happens due to one of three things: "
+                             + f"\n\t1) expired GitHub certificates (most common)"
+                             + f"\n\t2) or expired GitHub token in the secrets file for conway.ops"
+                             + f"\n\t3) or something else."
+                             + f"\n\nFor the first, if using Conda, check {certificate_file}"
+                             + f"\n\nFor the second, login to GitHub as a user with access to the remote repos in question"
+                             + f"\nand generate a token (in settings=>developer settings) and copy it to the secrets file for this repo."
+                             + f"\n\nFor the third, this was the HTTP response: \n{data}")  
+
+        return data    
 
 
     def current_branch(self):
@@ -160,7 +228,6 @@ class GitHub_RepoInspector(RepoInspector):
 
         return result
 
-        
     def branches(self):
         '''
         :return: (local) branches for the repo
@@ -171,7 +238,6 @@ class GitHub_RepoInspector(RepoInspector):
         result                              = [b['name'] for b in data]
 
         return result
-
 
     def committed_files(self):
         '''
@@ -204,13 +270,19 @@ class GitHub_RepoInspector(RepoInspector):
 
         return aggregated_cfi_l
     
-    def pull_request(self, from_branch, to_branch):
+    def pull_request(self, from_branch, to_branch, title, body):
         '''
         Creates and completes a pull request from the ``from_branch`` to the ``to_branch``.
 
         If anything goes wrong it raises an exception.
         '''    
-        raise ValueError("Not yet implemented")
+        pr_data                             = {"title":     title,
+                                               "body":      body,
+                                               "head":      from_branch,
+                                               "base":      to_branch}
+
+
+        return self._post_resource("/pulls", pr_data)
     
     def checkout(self, branch):
         '''
@@ -236,7 +308,7 @@ class GitHub_RepoInspector(RepoInspector):
         '''
         Helper method used to implement the recursion approach behind the method committed_files.
 
-        It incrementally aggregates the file-per-fileinformation for one commit, and then 
+        It incrementally aggregates the file-per-file information for one commit, and then 
         recursively calls itself to process the parent commits.
 
         The incremental aggregation is effected by adding additional entries to the ``results_dict_so_far``
