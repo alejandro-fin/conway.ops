@@ -1,5 +1,8 @@
+import os                                                           as _os
 from git                                                            import Repo
 
+from conway.observability.logger                                    import Logger
+from conway.util.profiler                                           import Profiler
 from conway.util.toml_utils                                         import TOML_Utils
 
 from conway_ops.util.git_branches                                   import GitBranches
@@ -74,51 +77,45 @@ class RepoSetup():
 
         REMOTE_ROOT                                     = f"https://{USER}@github.com/{GH_ORGANIZATION}"
 
-        # Step 1: clone all applicable repos
-        #
-        cloned_repo_l = []
-
         # Per CCL policy, we don't want to clone the master branch, since it should never exist locally.
         # Therefore have to clone a different branch and only bring in that branch during the cloning.
         branch_to_clone                                 = BRANCHES_TO_CREATE[0]
         kwargs                                          = {"branch": branch_to_clone}
 
-
         repos_to_clone                                  = REPO_LIST if filter is None else [n for n in REPO_LIST if n in filter] 
+        
+        Logger.log_info(f"Will set up repos {repos_to_clone} after applying filter {filter}")
+
         for some_repo_name in repos_to_clone:
 
-            cloned_repo                                 = Repo.clone_from(f"{REMOTE_ROOT}/{some_repo_name}.git", 
-                                                                      f"{LOCAL_ROOT}/{project}/{some_repo_name}",
-                                                                      **kwargs)
-            cloned_repo_l.append(cloned_repo)
+            with Profiler(f"Setting up repo '{some_repo_name}'"):
 
-        # Step 2:  Now that the first branch was created as part of cloning the repo, create any additional branches
-        #
-        for branch in BRANCHES_TO_CREATE[1:]:
-            for some_repo in cloned_repo_l:
+                Logger.log_info(f"\t... cloning repo '{some_repo_name}' ...")
 
-                executor                                = GitClient(some_repo.working_dir)
-                # Only create branch with '-b' option if it already exists.
-                if executor.execute(command             = f"git branch --list {branch}") == "":
-                    executor.execute(command            = f"git checkout -b {branch}")
-                else:
-                    executor.execute(command            = f"git checkout {branch}")
+                cloned_repo                                 = Repo.clone_from(f"{REMOTE_ROOT}/{some_repo_name}.git", 
+                                                                        f"{LOCAL_ROOT}/{project}/{some_repo_name}",
+                                                                        **kwargs)
 
-                # Check if branch exists in remote. If not, push local branch. If yes, set it as the upstream.
-                if executor.execute(command             = f"git ls-remote --heads origin {branch}") == "":
-                    executor.execute(command            = f"git push origin -u {branch}")
-                else:
-                    executor.execute(command            = f"git branch --set-upstream-to=origin/{branch} {branch}")
+                Logger.log_info(f"\t... creating branches {BRANCHES_TO_CREATE[1:]} for repo '{some_repo_name}' ...")
 
-        # Step 3: configure repos
-        #
-        # GOTCHA
-        # Configuring BeyondCompare to work in WSL can be tricky. These settings are based on this post:
-        #
-        # https://stackoverflow.com/questions/71093803/git-with-beyond-compare-4-on-wsl2-windows-11-not-opening-the-repo-version
-        #
-        for some_repo in cloned_repo_l:
-            self.configure(some_repo.working_dir)
+                for branch in BRANCHES_TO_CREATE[1:]:
+                
+
+                    executor                                = GitClient(cloned_repo.working_dir)
+                    # Only create branch with '-b' option if it already exists.
+                    if executor.execute(command             = f"git branch --list {branch}") == "":
+                        executor.execute(command            = f"git checkout -b {branch}")
+                    else:
+                        executor.execute(command            = f"git checkout {branch}")
+
+                    # Check if branch exists in remote. If not, push local branch. If yes, set it as the upstream.
+                    if executor.execute(command             = f"git ls-remote --heads origin {branch}") == "":
+                        executor.execute(command            = f"git push origin -u {branch}")
+                    else:
+                        executor.execute(command            = f"git branch --set-upstream-to=origin/{branch} {branch}")
+
+                Logger.log_info(f"\t... configuring repo '{some_repo_name}' ...")
+                self.configure(cloned_repo.working_dir)
 
     def configure(self, repo_path):
         '''
@@ -152,6 +149,12 @@ class RepoSetup():
     
         executor.execute(command                        = f'git config --local difftool.bc.path "{BC_PATH}"')
         executor.execute(command                        = f'git config --local difftool.bc.trustExitCode true')
+
+        # GOTCHA
+        # Configuring BeyondCompare to work in WSL can be tricky. These settings are based on this post:
+        #
+        # https://stackoverflow.com/questions/71093803/git-with-beyond-compare-4-on-wsl2-windows-11-not-opening-the-repo-version
+
     
         # For the difftool.bc.cmd, we need to map the local and remote paths between WSL and Windows, and to do that
         # we need to pass a setting for which the quotes can get a little tricky. 

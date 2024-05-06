@@ -90,15 +90,17 @@ class BranchLifecycleManager(RepoAdministration):
             app_name                                    = Application.app().app_name
             master                                      = GB.MASTER_BRANCH.value
             integration                                 = GB.INTEGRATION_BRANCH.value
-            inspector.pull_request(from_branch          = master, 
-                                   to_branch            = integration,
-                                   title                = f"Merge {master} -> {integration}",
-                                   body                 = f"Automated PR creation by {app_name}")
+            downstream_pr                               = inspector.pull_request(
+                                                            from_branch          = master, 
+                                                            to_branch            = integration,
+                                                            title                = f"Merge {master} -> {integration}",
+                                                            body                 = f"Automated PR creation by {app_name}")
             
-            inspector.pull_request(from_branch          = integration, 
-                                   to_branch            = master,
-                                   title                = f"Merge {integration} -> {master}",
-                                   body                 = f"Automated PR creation by {app_name}")
+            upstream_pr                                 = inspector.pull_request(
+                                                            from_branch          = integration, 
+                                                            to_branch            = master,
+                                                            title                = f"Merge {integration} -> {master}",
+                                                            body                 = f"Automated PR creation by {app_name}")
 
     def publish_release(self):
         '''
