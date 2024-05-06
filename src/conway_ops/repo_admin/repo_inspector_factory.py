@@ -16,7 +16,11 @@ class RepoInspectorFactory():
     def __init__(self):
         pass
 
-    GIT_HUB_URL                                         = "https://github.com/"
+    # Want to match GitHub URLs, which as per CCL policies must include the user name, so typically might look like
+    #
+    #       'https://alejandro-fin@github.com/alejandro-fin/conway.svc'
+    #
+    GIT_HUB_URL_MATCH                                   = "@github.com/"
     def findInspector(parent_url, repo_name):
         '''
         :param str parent_url: A string identifying the location under which the repo of interest lives as
@@ -29,7 +33,7 @@ class RepoInspectorFactory():
         full_path                                       = parent_url + "/" + repo_name
         if Path(full_path).exists():
             inspector                                   = FileSystem_RepoInspector(parent_url, repo_name)
-        elif parent_url.startswith(RepoInspectorFactory.GIT_HUB_URL):
+        elif RepoInspectorFactory.GIT_HUB_URL_MATCH in parent_url:
             inspector                                   = GitHub_RepoInspector(parent_url, repo_name)
         else:
             raise ValueError("No repo inspector is available for '" + full_path + "'")
