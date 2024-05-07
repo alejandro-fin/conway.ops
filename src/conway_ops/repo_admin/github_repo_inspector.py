@@ -308,6 +308,8 @@ class GitHub_RepoInspector(RepoInspector):
 
         :param str from_branch: GIT branch used as the source for the pull request
         :param str to_branch: GIT branch used as the destination for the pull request
+        :param str title: the value of the `title` field in the GitHub pull request object being created
+        :param str body: the value of the `body` field in the GitHub pull request object being created
         :returns: The pull request information. If the pull request was not created for a benign reason
                 (for example, if there are no commits to merge from the `from_branch` to the `to_branch`)
                 it returns None.
@@ -378,25 +380,16 @@ class GitHub_RepoInspector(RepoInspector):
         return merge_result
 
     
-    def checkout(self, branch):
-        '''
-        Switches the repo to the given branch.
-
-        :param str branch: branch to switch repo to.
-
-        If anything goes wrong it raises an exception.
-        '''
-        raise ValueError("Not yet implemented")
-    
     def update_local(self, branch):
         '''
-        Updates the local repo from the remote, for the given ``branch``.
+        This method is deliberatly not implemented, and will raise an error if called.
 
-        If anything goes wrong it raises an exception.
+        The only reason that this method exists is that the parent abstract class mandates it, 
+        but for repos in GitHub it does not apply since there is no notion of "local" repo.
 
         :param str branch: repo local branch to update from the remote.
         '''
-        raise ValueError("Not yet implemented")
+        raise ValueError("This method does not apply for GitHub repos - never call it")
 
     def _committed_files_impl(self, results_dict_so_far, data):
         '''
