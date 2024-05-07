@@ -86,7 +86,7 @@ class BranchLifecycleManager(RepoAdministration):
         master                                          = GB.MASTER_BRANCH.value
         integration                                     = GB.INTEGRATION_BRANCH.value
         for repo_name in self.repo_names():
-            self.log_info("\n-----------" + repo_name + "-----------")
+            self.log_info(f"\n----------- {repo_name} (remote) -----------")
 
             inspector                                   = RepoInspectorFactory.findInspector(self.remote_root,
                                                                                              repo_name)
@@ -123,7 +123,7 @@ class BranchLifecycleManager(RepoAdministration):
         master                                          = GB.MASTER_BRANCH.value
         operate                                         = GB.OPERATE_BRANCH.value            
         for repo_name in self.repo_names():
-            self.log_info("\n-----------" + repo_name + "-----------")
+            self.log_info(f"\n----------- {repo_name} (remote) -----------")
 
             remote_inspector                            = RepoInspectorFactory.findInspector(self.remote_root,
                                                                                              repo_name)
@@ -131,6 +131,8 @@ class BranchLifecycleManager(RepoAdministration):
                                           to_branch     = operate,
                                           title         = f"Merge {master} -> {operate} (remote)",
                                           body          = f"Automated PR creation by {app_name}")
+            
+            self.log_info(f"\n----------- {repo_name} (local) -----------")
 
             local_inspector                            = RepoInspectorFactory.findInspector(self.local_root,
                                                                                              repo_name)
@@ -159,12 +161,11 @@ class BranchLifecycleManager(RepoAdministration):
         operate                                         = GB.OPERATE_BRANCH.value            
 
         for repo_name in self.repo_names():
-            self.log_info("\n-----------" + repo_name + "-----------")
 
             remote_inspector                            = RepoInspectorFactory.findInspector(self.remote_root, repo_name)
             local_inspector                             = RepoInspectorFactory.findInspector(self.local_root, repo_name)
-            
-            self.log_info("\n\t\t ***** In the remote...")
+
+            self.log_info(f"\n----------- {repo_name} (remote) -----------")
 
             # Update operate => master (remote)
             remote_inspector.pull_request(from_branch   = operate, 
@@ -178,63 +179,115 @@ class BranchLifecycleManager(RepoAdministration):
                                           title         = f"Merge {master} -> {integration} (remote)",
                                           body          = f"Automated PR creation by {app_name}")
 
-            self.log_info("\n\t\t ***** In the local...")
+            self.log_info(f"\n----------- {repo_name} (local) -----------")
             # Now update local integration from the remote
             local_inspector.update_local(integration)
 
-    def complete_feature(self, feature_branch, remove_feature_branch=False):
+    def complete_feature(self, feature_branch):
         '''
         Merges a feature branch into the integration branch locally, and pushes the integration branch.
 
-        Optionally, deletes the feature branch.
+        After the merge, it will leave the local repo in the same branch that was checked out prior to this
+        method getting called.
 
         Raises an exception if there is uncommitted work in the feature branch.
         '''
         GB                                              = GitBranches
         integration                                     = GB.INTEGRATION_BRANCH.value
 
-        # First check that there is nothing checked out
+        
         for repo_name in self.repo_names():
-            self.log_info("\n-----------" + repo_name + "-----------")
+            self.log_info(f"\n----------- {repo_name} (local) -----------")
+            # First check that there is nothing checked out
 
             working_dir                                 = self.local_root + "/" + repo_name
             _os.chdir(working_dir)
-            self.log_info("Working in folder '" + working_dir + "'")
+            self.log_info(f"local = '{working_dir}'")
             executor                                    = GitClient(working_dir)
+
+            if feature_branch == integration:
+                raise ValueError(f"A self-referencing merge '{feature_branch}' -> '{integration}' is not allowed. Are "
+                                 + f"you sure you provided the correct feature branch to merge into '{integration}'?")
+
+            original_branch                             = executor.execute(command = "git rev-parse --abbrev-ref HEAD")
 
             # First check if there is anything to commit. We check because if there is nothing to commit
             # and we try to commit, we will get error messages
-            status0                                     = executor.execute(command = 'git status')
-            self.log_info("Status '" + str(feature_branch) + "':\n" + str(status0)) 
+            status                                      = self._STATUS(executor, original_branch)
         
             CLEAN_TREE_MSG                              = "nothing to commit, working tree clean"
-            if CLEAN_TREE_MSG in status0:
-                continue
-            else:
-                raise ValueError("Can't merge '" + repo_name + "' into integration because there is unchecked work in '"
-                                  + feature_branch + "'") 
+            if not CLEAN_TREE_MSG in status:
+                raise ValueError(f"Can't merge '{feature_branch}' -> '{integration}' because there is unchecked work in '"
+                                  + f"'{original_branch}'")
             
-        # Now that we know everything is checked out, it is safe to merge into integration
-        for repo_name in self.repo_names():
-            self.log_info("\n-----------" + repo_name + "-----------")
+            # Before merging the feature branch, update the local integration branch with other people's changes
+            # by pulling integration from the remote
+            #
+            self._TO(executor, integration)
 
-            working_dir                                 = self.local_root + "/" + repo_name
-            
-            _os.chdir(working_dir)
-            self.log_info("Working in folder '" + working_dir + "'")
-            executor                                    = GitClient(working_dir)
+            self._PULL(executor, integration)
 
-            status1                                     = executor.execute("git checkout " + integration)
-            self.log_info("Checkout '" + integration + "':\n" + str(status1))
+            # Now that the local integration branch has other people's changes, bring them into the feature
+            # branch. This step may result in a merge
+            #
+            self._TO(executor, feature_branch)
 
-            status2                                     = executor.execute(command = 'git pull')
-            self.log_info("Pull '" + integration + "':\n" + str(status2)) 
+            self._MERGE(executor, integration, feature_branch)
 
-            status3                                     = executor.execute("git merge " + str(feature_branch))
-            self.log_info("Merge '" + str(feature_branch) + "':\n" + str(status3))
+            # If we get this far, then the feature branch now other people's change in it. It is now safe
+            # for the feature branch to be merged into integration, locally andin the remote
+            #
+            self._TO(executor, integration)
 
-            status4                                     = executor.execute(command = 'git push')
-            self.log_info("Push '" + integration + "':\n" + str(status4)) 
+            self._MERGE(executor, feature_branch, integration)
+
+            self._PUSH(executor, integration)
+
+            # Leave the repo in the same branch in which we found it
+            #
+            if original_branch != integration:
+                self._TO(executor, original_branch)
+ 
+    def _STATUS(self, executor, branch):
+        '''
+        Helper method to get status of a branch. It requires that `branch` is the current branch.
+        '''
+        status                                      = executor.execute(command = 'git status')
+        self.log_info(f"@ '{branch}' (local):\n\n{status}") 
+        return status
+
+    def _TO(self, executor, branch):
+        '''
+        Helper method to switch to the given branch
+        '''
+        status                                      = executor.execute("git checkout " + branch)
+        self.log_info(f"@ '{branch}' (local):\n\n{status}")
+        return status
+
+    def _MERGE(self, executor, from_branch, to_branch):
+        '''
+        Helper method to do a merge between local branches. It requires that `from_branch` is the current branch.
+        '''
+        status                                      = executor.execute("git merge " + str(from_branch))
+        self.log_info(f"'{from_branch}' (local) - {to_branch}' (local):\n\n{status}")
+        return status
+
+    def _PULL(self, executor, branch):
+        '''
+        Helper method to pull remote to local. It requires that `branch` be the current branch.
+        '''
+        status                                     = executor.execute(command = 'git pull')
+        self.log_info(f"{branch} (remote) ->'{branch} (local)':\n\n{status}") 
+        return status
+
+    def _PUSH(self, executor, branch):
+        '''
+        Helper method to push local to remote. It requires that `branch` be the current branch.
+        '''
+        status                                      = executor.execute(command = 'git push')
+        self.log_info(f"{branch}' (local) -> {branch}' (remote):\n\n{status}")
+        return status 
+
 
     def commit_feature(self, feature_branch, commit_msg):
         '''
@@ -250,14 +303,14 @@ class BranchLifecycleManager(RepoAdministration):
         for repo_name in self.repo_names():
             current_branch                              = self.current_local_branch(repo_name)
             if feature_branch != current_branch:
-                raise ValueError("Can't commit work because repo '" + repo_name + "' has the wrong branch checkoud out: '"
+                raise ValueError("Can't commit work because repo '" + repo_name + "' has the wrong branch checked out: '"
                                  + current_branch + "' (should have been '" + feature_branch + "')") 
         for repo_name in self.repo_names():
-            self.log_info("\n-----------" + repo_name + "-----------")
+            self.log_info(f"\n----------- {repo_name} (local) -----------")
 
             working_dir                                 = self.local_root + "/" + repo_name
             _os.chdir(working_dir)
-            self.log_info("Working in folder '" + working_dir + "'")
+            self.log_info("local = '" + working_dir + "'")
             executor                                    = GitClient(working_dir)
 
             # First check if there is anything to commit. We check because if there is nothing to commit
@@ -313,19 +366,19 @@ class BranchLifecycleManager(RepoAdministration):
             executor                                    = GitClient(repo_path)
             existing_branches                           = self.branches(repo_name)
 
-            self.log_info("\n-----------" + repo_name + "-----------")
+            self.log_info(f"\n----------- {repo_name} (local) -----------")
 
             if feature_branch in existing_branches:
                 # In this case, we just switch to the branch
                 status                                  = executor.execute("git checkout " + str(feature_branch))
-                self.log_info("Checkout '" + str(feature_branch) + "':\n" + str(status))
+                self.log_info(f"@ '{feature_branch}' (local):\n\n{status}")
             else:
                 # In this case create the branch, and set tracking in the remote
                
                 status1                                 = executor.execute(command = 'git checkout -b ' + str(feature_branch))
-                self.log_info("Checkout -b '" + str(feature_branch) + "':\n" + str(status1)) 
+                self.log_info(f"Created'{feature_branch}' (local):\n\n{status1}") 
                 status2                                 = executor.execute(command = 'git push -u origin ' + str(feature_branch))
-                self.log_info("Remote tracking '" + str(feature_branch) + "':\n" + str(status2)) 
+                self.log_info(f"Tracking '{feature_branch} (local) <-> (remote)':\n\n{status2}") 
 
     def remove_feature_branch(self, feature_branch):
         '''
@@ -354,7 +407,7 @@ class BranchLifecycleManager(RepoAdministration):
         for repo_name in self.repo_names():
             executor                                    = GitClient(self.local_root + "/" + repo_name)
 
-            self.log_info("\n-----------" + repo_name + "-----------")
+            self.log_info(f"\n----------- {repo_name} (local) -----------")
 
             status1                                     = executor.execute(
                                                                     command = 'git branch -d  ' + str(feature_branch))
@@ -372,7 +425,7 @@ class BranchLifecycleManager(RepoAdministration):
         app_name                                        = Application.app().app_name
         integration                                     = GB.INTEGRATION_BRANCH.value
         for repo_name in self.repo_names():
-            self.log_info("\n-----------" + repo_name + "-----------")
+            self.log_info(f"\n----------- {repo_name} (local) -----------")
 
             local_inspector                             = RepoInspectorFactory.findInspector(self.local_root, repo_name)
 
@@ -390,7 +443,7 @@ class BranchLifecycleManager(RepoAdministration):
         Updates local feature branch from the remote feature branch.
         '''
         for repo_name in self.repo_names():
-            self.log_info("\n-----------" + repo_name + "-----------")
+            self.log_info(f"\n----------- {repo_name} (local) -----------")
 
             local_inspector                             = RepoInspectorFactory.findInspector(self.local_root, repo_name)
 

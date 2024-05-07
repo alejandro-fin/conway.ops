@@ -45,21 +45,6 @@ class GitHub_RepoInspector(RepoInspector):
 
         #self.github_api_url                             = f"https://{self.owner}@api.github.com"
         self.github_api_url                             = f"https://api.github.com"
-
-
-    def DEPRECATED_get_resource(self, resource_path):
-        '''
-        Invokes the Git Hub API to get information about the repo associated to this inspector.
-
-        :param str resource_path: Indicates the path of a desired resource under the URL for the
-            repo for which self is an inspector. Examples: "/commits/master", "/branches"
-        :return: A Json representation of the resource as given by the GitHub API
-        :rtype: str
-        '''
-        root_path                           = f"{self.github_api_url}/repos/{self.owner}/{self.repo_name}"
-        url                                 = root_path + resource_path
-
-        return self.GET(url)     
     
     def GET(self, resource_path):
         '''
@@ -133,69 +118,6 @@ class GitHub_RepoInspector(RepoInspector):
             raise ValueError("Problem connecting to Git Hub. Error is: " + str(ex))
         
         return GitHub_ReponseHandler().process(response)    
-
-    def DEPRECATED_get_from_url(self, url):
-        '''
-        Invokes the URL to get information about the repo associated to this inspector.
-
-        :param str url: Indicates the absolute url in the GitHub API. 
-        :return: A Json representation of the resource as given by the GitHub API
-        :rtype: str
-        '''
-        headers = {
-            
-            'Authorization': 'Bearer ' + self.github_token,
-            'Content-Type' : 'application/json',
-            'Accept'       : 'application/json'
-        }
-        try:
-            response                        = _requests.request(method          = 'GET', 
-                                                                url             = url, 
-                                                                params          = {}, 
-                                                                json            = {},
-                                                                headers         = headers, 
-                                                                timeout         = 20,
-                                                                verify          = True) 
-
-        except Exception as ex:
-            raise ValueError("Problem connecting to Git Hub. Error is: " + str(ex))
-
-        return GitHub_ReponseHandler().process(response)     
-    
-
-    def DEPRECATED_http_call(self, method, url, body):
-        '''
-        Makes an HTTP request to the URL to post information to the repo associated to this inspector.
-
-        :param str method: the HTTP verb to use ("GET", "POST", or "PUT")
-        :param str url: Indicates the absolute url in the GitHub API. 
-        :param dict body: payload to submit in the POST request
-        :return: A Json representation of the resource as given by the GitHub API
-        :rtype: str
-        '''
-        headers = {
-            'Authorization': 'Bearer ' + self.github_token,
-            'Content-Type' : 'application/json',
-            # GOTCHA:
-            #       Painfully found that GitHub post APIs will only work with the "vnd.github*" MIME types
-            #'Accept'       : 'application/json'
-            'Accept'        : 'application/vnd.github+json'
-            
-        }
-        try:
-            response                        = _requests.request(method          = method, 
-                                                                url             = url, 
-                                                                params          = {}, 
-                                                                json            = body,
-                                                                headers         = headers, 
-                                                                timeout         = 20,
-                                                                verify          = True) 
-
-        except Exception as ex:
-            raise ValueError("Problem connecting to Git Hub. Error is: " + str(ex))
-        
-        return GitHub_ReponseHandler().process(response)
-
 
     def current_branch(self):
         '''
