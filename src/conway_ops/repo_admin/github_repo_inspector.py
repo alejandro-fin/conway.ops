@@ -3,8 +3,9 @@ from dateutil                                               import parser as _pa
 
 
 from conway.application.application                         import Application
-
 from conway.util.yaml_utils                                 import YAML_Utils
+
+from conway_ops.repo_admin.github_response_handler          import GitHub_ReponseHandler
 from conway_ops.repo_admin.repo_inspector                   import RepoInspector, CommitInfo, CommittedFileInfo
 
 class GitHub_RepoInspector(RepoInspector):
@@ -13,7 +14,8 @@ class GitHub_RepoInspector(RepoInspector):
     Utility class that is able to execute GIT commands for public repos located in GitHub
 
     :param str parent_url: A string identifying the location under which the repo of interest lives as
-        a "subfolder" or "sub resource". May be a path to the local file system or the URL to a remote server.
+        a "subfolder" or "sub resource". It is expected to be the URL to a remote server, such as GitHub URL
+        to a GitHub organization or user account.
     :param str repo_name: A string identifying the name of the repo of interest, as a "subfolder"
         or "sub resource" under the ``parent_url``.
 
@@ -41,10 +43,11 @@ class GitHub_RepoInspector(RepoInspector):
         secrets_dict                                    = YAML_Utils().load(SECRETS_PATH)
         self.github_token                               = secrets_dict['secrets']['github_token']
 
-    GIT_HUB_API                                         = "https://api.github.com"
-    
+        #self.github_api_url                             = f"https://{self.owner}@api.github.com"
+        self.github_api_url                             = f"https://api.github.com"
 
-    def _get_resource(self, resource_path):
+
+    def DEPRECATED_get_resource(self, resource_path):
         '''
         Invokes the Git Hub API to get information about the repo associated to this inspector.
 
@@ -53,12 +56,85 @@ class GitHub_RepoInspector(RepoInspector):
         :return: A Json representation of the resource as given by the GitHub API
         :rtype: str
         '''
-        root_path                           = self.GIT_HUB_API + "/repos/" + self.owner + "/" + self.repo_name
+        root_path                           = f"{self.github_api_url}/repos/{self.owner}/{self.repo_name}"
         url                                 = root_path + resource_path
 
-        return self._get_from_url(url)     
+        return self.GET(url)     
     
-    def _get_from_url(self, url):
+    def GET(self, resource_path):
+        '''
+        Invokes the "GET" HTTP verb on the Git Hub API to get a resource associated to this inspector's repo.
+
+        :param str resource_path: Indicates the path of a desired resource to create or update, under the URL for the
+            repo for which self is an inspector. Examples: "/commits/master", "/branches", "/pulls" 
+        :return: A Json representation of the resource as given by the GitHub API
+        :rtype: str
+        '''
+        return self._http_call("GET", resource_path)
+    
+    def POST(self, resource_path, body):
+        '''
+        Invokes the "POST" HTTP verb on the Git Hub API to create a resource associated to this inspector's repo.
+
+        :param str resource_path: Indicates the path of a desired resource to create or update, under the URL for the
+            repo for which self is an inspector. Examples: "/commits/master", "/branches", "/pulls" 
+        :param dict body: payload to submit in the HTTP request.
+        :return: A Json representation of the resource as given by the GitHub API
+        :rtype: str
+        '''
+        return self._http_call("POST", resource_path, body)
+    
+    def PUT(self, resource_path, body):
+        '''
+        Invokes the "PUT" HTTP verb on the Git Hub API to update a resource associated to this inspector's repo.
+
+        :param str resource_path: Indicates the path of a desired resource to create or update, under the URL for the
+            repo for which self is an inspector. Examples: "/commits/master", "/branches", "/pulls" 
+        :param dict body: payload to submit in the HTTP request.
+        :return: A Json representation of the resource as given by the GitHub API
+        :rtype: str
+        '''
+        return self._http_call("PUT", resource_path, body)
+           
+    
+    def _http_call(self, method, resource_path, body={}):
+        '''
+        Invokes the Git Hub API to get information about the repo associated to this inspector.
+
+        :param str method: the HTTP verb to use ("GET", "POST", or "PUT")
+        :param str resource_path: Indicates the path of a desired resource to create or update, under the URL for the
+            repo for which self is an inspector. Examples: "/commits/master", "/branches", "/pulls"
+        :param dict body: optional payload to submit in the HTTP request. 
+        :return: A Json representation of the resource as given by the GitHub API
+        :rtype: str
+        '''
+        root_path                           = f"{self.github_api_url}/repos/{self.owner}/{self.repo_name}"
+        url                                 = root_path + resource_path
+
+        headers = {
+            'Authorization': 'Bearer ' + self.github_token,
+            'Content-Type' : 'application/json',
+            # GOTCHA:
+            #       Painfully found that GitHub post APIs will only work with the "vnd.github*" MIME types
+            #'Accept'       : 'application/json'
+            'Accept'        : 'application/vnd.github+json'
+            
+        }
+        try:
+            response                        = _requests.request(method          = method, 
+                                                                url             = url, 
+                                                                params          = {}, 
+                                                                json            = body,
+                                                                headers         = headers, 
+                                                                timeout         = 20,
+                                                                verify          = True) 
+
+        except Exception as ex:
+            raise ValueError("Problem connecting to Git Hub. Error is: " + str(ex))
+        
+        return GitHub_ReponseHandler().process(response)    
+
+    def DEPRECATED_get_from_url(self, url):
         '''
         Invokes the URL to get information about the repo associated to this inspector.
 
@@ -67,6 +143,7 @@ class GitHub_RepoInspector(RepoInspector):
         :rtype: str
         '''
         headers = {
+            
             'Authorization': 'Bearer ' + self.github_token,
             'Content-Type' : 'application/json',
             'Accept'       : 'application/json'
@@ -75,28 +152,49 @@ class GitHub_RepoInspector(RepoInspector):
             response                        = _requests.request(method          = 'GET', 
                                                                 url             = url, 
                                                                 params          = {}, 
-                                                                data            = '', \
+                                                                json            = {},
                                                                 headers         = headers, 
                                                                 timeout         = 20,
                                                                 verify          = True) 
 
-            data                            = response.json()
-
         except Exception as ex:
             raise ValueError("Problem connecting to Git Hub. Error is: " + str(ex))
 
-        if response.status_code != 200:
-            certificate_file                = f"<YOUR CONDA INSTALL ROOT>/envs/<YOUR CONDA ENVIRONMENT>/lib/site-packages/certifi/cacert.pem"
-                         
-            raise ValueError(f"Error status {response.status_code} from doing: GET on '{url}'."
-                             + f"\nThis often happens due to one of two things: "
-                             + f"\n\t1) expired GitHub certificates (most common)"
-                             + f"\n\t2) or expired GitHub token in the secrets file for conway.ops"
-                             + f"\nFor the first, if using Conda, check {certificate_file}"
-                             + f"\nFor the latter, login to GitHub as a user with access to the remote repos in question"
-                             + f"\nand generate a token (in settings=>developer settings) and copy it to the secrets file for this repo.")  
+        return GitHub_ReponseHandler().process(response)     
+    
 
-        return data      
+    def DEPRECATED_http_call(self, method, url, body):
+        '''
+        Makes an HTTP request to the URL to post information to the repo associated to this inspector.
+
+        :param str method: the HTTP verb to use ("GET", "POST", or "PUT")
+        :param str url: Indicates the absolute url in the GitHub API. 
+        :param dict body: payload to submit in the POST request
+        :return: A Json representation of the resource as given by the GitHub API
+        :rtype: str
+        '''
+        headers = {
+            'Authorization': 'Bearer ' + self.github_token,
+            'Content-Type' : 'application/json',
+            # GOTCHA:
+            #       Painfully found that GitHub post APIs will only work with the "vnd.github*" MIME types
+            #'Accept'       : 'application/json'
+            'Accept'        : 'application/vnd.github+json'
+            
+        }
+        try:
+            response                        = _requests.request(method          = method, 
+                                                                url             = url, 
+                                                                params          = {}, 
+                                                                json            = body,
+                                                                headers         = headers, 
+                                                                timeout         = 20,
+                                                                verify          = True) 
+
+        except Exception as ex:
+            raise ValueError("Problem connecting to Git Hub. Error is: " + str(ex))
+        
+        return GitHub_ReponseHandler().process(response)
 
 
     def current_branch(self):
@@ -146,7 +244,7 @@ class GitHub_RepoInspector(RepoInspector):
         :return: A :class:`CommitInfo` with information about last commit"
         :rtype: str
         '''
-        data                                = self._get_resource("/commits/master")
+        data                                = self.GET("/commits/master")
         
         commit_datetime                     = _parser.parse(data['commit']['author']['date'])
         
@@ -160,18 +258,16 @@ class GitHub_RepoInspector(RepoInspector):
 
         return result
 
-        
     def branches(self):
         '''
         :return: (local) branches for the repo
         :rtype: list[str]
         '''
-        data                                = self._get_resource("/branches")
+        data                                = self.GET("/branches")
 
         result                              = [b['name'] for b in data]
 
         return result
-
 
     def committed_files(self):
         '''
@@ -179,7 +275,7 @@ class GitHub_RepoInspector(RepoInspector):
         (i.e., a log) for the repo associated to this :class:`RepoInspector`
         '''
         # This provides the first most recent commit, and links to "parent" commits - the commits right before it
-        data                                = self._get_resource("/commits/master")
+        data                                = self.GET("/commits/master")
 
         results_dict                        = self._committed_files_impl(results_dict_so_far={}, data=data)
 
@@ -204,39 +300,102 @@ class GitHub_RepoInspector(RepoInspector):
 
         return aggregated_cfi_l
     
-    def pull_request(self, from_branch, to_branch):
+    def pull_request(self, from_branch, to_branch, title, body):
         '''
         Creates and completes a pull request from the ``from_branch`` to the ``to_branch``.
 
         If anything goes wrong it raises an exception.
-        '''    
-        raise ValueError("Not yet implemented")
-    
-    def checkout(self, branch):
-        '''
-        Switches the repo to the given branch.
 
-        :param str branch: branch to switch repo to.
+        :param str from_branch: GIT branch used as the source for the pull request
+        :param str to_branch: GIT branch used as the destination for the pull request
+        :param str title: the value of the `title` field in the GitHub pull request object being created
+        :param str body: the value of the `body` field in the GitHub pull request object being created
+        :returns: The pull request information. If the pull request was not created for a benign reason
+                (for example, if there are no commits to merge from the `from_branch` to the `to_branch`)
+                it returns None.
+
+        :rtype: dict
+        '''    
+        pr_result                           =  self._create_pull_request(from_branch, to_branch, title, body)
+        if pr_result is None:
+            return None
+        else:
+            return self._merge_pull_request(pr_result, title)
+    
+    def _create_pull_request(self, from_branch, to_branch, title, body):
+        '''
+        Creates a pull request from the ``from_branch`` to the ``to_branch``.
 
         If anything goes wrong it raises an exception.
+
+        :param str from_branch: GIT branch used as the source for the pull request
+        :param str to_branch: GIT branch used as the destination for the pull request
+        :returns: The pull request information. If the pull request was not created for a benign reason
+                (for example, if there are no commits to merge from the `from_branch` to the `to_branch`)
+                it returns None.
+
+        :rtype: dict
+        '''    
+        pr_data                             = {"title":     title,
+                                               "body":      body,
+                                               "head":      from_branch,
+                                               "base":      to_branch}
+
+
+        pr_result                           =  self.POST("/pulls", pr_data)
+        if pr_result is None:
+            Application.app().log(f"Pull request {from_branch}->{to_branch} is not needed, so it was not created")
+            return None
+        else:
+            Application.app().log(f"Pull request {from_branch}->{to_branch} created")
+
+        return pr_result
+        
+    def _merge_pull_request(self, pr, title):
         '''
-        raise ValueError("Not yet implemented")
+        Merges a pull request.
+
+        If anything goes wrong it raises an exception.
+
+        :param dict pr: pull request object obtained from a previous API call to GitHub to create a pull request
+        :param str title: Title for the pull request commit
+        :returns: The mrege information. If no merge was needed, returns None.
+
+        :rtype: dict
+        '''    
+        pull_number                         = pr['number']
+        sha                                 = pr['head']['sha']
+        from_branch                         = pr['head']['ref']
+        to_branch                           = pr['base']['ref']
+
+        merge_data                          = {"commit_title":      title,
+                                                "commit_message":   "",
+                                                "sha":              sha,
+                                                "merge_method":     "merge"}
+
+        merge_result                    =  self.PUT(f"/pulls/{pull_number}/merge", merge_data)
+
+        Application.app().log(f"Merged pull request {from_branch}->{to_branch}")
+
+        return merge_result
+
     
     def update_local(self, branch):
         '''
-        Updates the local repo from the remote, for the given ``branch``.
+        This method is deliberatly not implemented, and will raise an error if called.
 
-        If anything goes wrong it raises an exception.
+        The only reason that this method exists is that the parent abstract class mandates it, 
+        but for repos in GitHub it does not apply since there is no notion of "local" repo.
 
         :param str branch: repo local branch to update from the remote.
         '''
-        raise ValueError("Not yet implemented")
+        raise ValueError("This method does not apply for GitHub repos - never call it")
 
     def _committed_files_impl(self, results_dict_so_far, data):
         '''
         Helper method used to implement the recursion approach behind the method committed_files.
 
-        It incrementally aggregates the file-per-fileinformation for one commit, and then 
+        It incrementally aggregates the file-per-file information for one commit, and then 
         recursively calls itself to process the parent commits.
 
         The incremental aggregation is effected by adding additional entries to the ``results_dict_so_far``
@@ -284,7 +443,7 @@ class GitHub_RepoInspector(RepoInspector):
         # Now do recursion, for each parent
         parents                             = data['parents']
         for p in parents:
-            p_data                          = self._get_from_url(p['url'])
+            p_data                          = self.GET(p['url'])
             results_dict                    = self._committed_files_impl(results_dict, p_data)
 
         return results_dict

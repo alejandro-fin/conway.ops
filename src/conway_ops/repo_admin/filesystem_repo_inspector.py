@@ -307,12 +307,24 @@ class FileSystem_RepoInspector(RepoInspector):
         return result
     
 
-    def pull_request(self, from_branch, to_branch):
+    def pull_request(self, from_branch, to_branch, title, body):
         '''
         Creates and completes a pull request from the ``from_branch`` to the ``to_branch``.
 
         If anything goes wrong it raises an exception.
+
+        :param str from_branch: GIT branch used as the source for the pull request
+        :param str to_branch: GIT branch used as the destination for the pull request
+        :param str title: this parameter is not used in this class, so it is ignored. The only reason the parameter
+                exists is that it was mandated by the abstract parent class.
+        :param str body: this parameter is not used in this class, so it is ignored. The only reason the parameter
+                exists is that it was mandated by the abstract parent class.
+        :returns: The pull request information. If the pull request was not created for a benign reason
+                (for example, if there are no commits to merge from the `from_branch` to the `to_branch`)
+                it returns None.
         '''    
+        # Remember the original branch that is checked out in the remote, so that later we can go back to it
+        original_branch     = self.current_branch()
         executor            = GitClient(self.parent_url + "/" + self.repo_name) 
 
         status1             = executor.execute(command = 'git checkout ' + to_branch)
@@ -321,7 +333,10 @@ class FileSystem_RepoInspector(RepoInspector):
         status2             = executor.execute(command = 'git merge ' + from_branch)
         Logger.log_info("Merge from '" + from_branch + "':\n" + str(status2))
 
-    def checkout(self, branch):
+        # Restore original branch
+        self._checkout(original_branch)
+
+    def _checkout(self, branch):
         '''
         Switches the repo to the given branch.
 
@@ -344,6 +359,9 @@ class FileSystem_RepoInspector(RepoInspector):
         :param str branch: repo local branch to update from the remote.
         '''
         Logger.log_info("\t\t*** using " + str(self.parent_url) + " ***")
+        # Remember the original branch that is checked out in the remote, so that later we can go back to it
+        original_branch     = self.current_branch()
+
         executor            = GitClient(self.parent_url + "/" + self.repo_name) 
 
         status1             = executor.execute(command = 'git checkout ' + branch)
@@ -352,3 +370,5 @@ class FileSystem_RepoInspector(RepoInspector):
         status2             = executor.execute(command = 'git pull')
         Logger.log_info("Pull '" + branch + "':\n" + str(status2))
 
+        # Restore original branch
+        self._checkout(original_branch)

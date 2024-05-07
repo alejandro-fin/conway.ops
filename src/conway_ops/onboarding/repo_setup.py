@@ -1,7 +1,11 @@
+import os                                                           as _os
 from git                                                            import Repo
 
+from conway.observability.logger                                    import Logger
+from conway.util.profiler                                           import Profiler
 from conway.util.toml_utils                                         import TOML_Utils
 
+from conway_ops.util.git_branches                                   import GitBranches
 from conway_ops.util.git_client                                     import GitClient
 
 
@@ -32,63 +36,86 @@ class RepoSetup():
         self.profile_path                               = f"{sdlc_root}/sdlc.profiles/{profile_name}/profile.toml" 
         self.profile                                    = TOML_Utils().load(self.profile_path)
 
-    def setup(self, project):
+    def setup(self, project, filter=None, operate=False, root_folder=None):
         '''
         For the given project, it clones and configures all repos for that project that are specified in 
-        the user profile self.profile_name.
+        the user profile `self.profile_name`.
 
         The repos are created in a project folder under the profile's root folder for local development.
 
         :param str project: name of the project to set up. Must be a project that appears in 
-                            self.profile["local_development"]
+                            self.profile["projects"]
+        :param list[str] filter: optional parameter with the names of the repos to set up. If set to `None` (the
+                            default value), then all repos in `self.profile` for `project` will be set up.
+                            As a boundary case, if `filter` mentions a repo that is not in `self.profile`, then it is
+                            ignored.
+        :param bool operate: optional parameter. If True, the setup will be made for an operate installation of the project.
+                            By default is is False, in which case a development setup will be made.
+        :param str root_folder: optional parameter, that defaults to None. If not None, this is the root folder in the
+                            local machine under which the to create a project folder called `project`, beneath which
+                            repos for `project` will get cloned. If it is None, the project folder will be 
+                            as specified by the suer profile `self.profile_name` 
 
         '''
         P                                               = self.profile
+        GB                                              = GitBranches
 
         GH_ORGANIZATION                                 = P["git"]["github_organization"]
   
-        REPO_LIST                                       = P["local_development"][project]
-        LOCAL_ROOT                                      = P["local_development"]["root"]
-        WORKING_BRANCH                                  = P["git"]["working_branch"]
+        REPO_LIST                                       = P["projects"][project]
+        
+        if operate:
+            LOCAL_ROOT                                  = P["operate"]["operate_root"] if root_folder is None else root_folder
+            WORKING_BRANCH                              = GB.OPERATE_BRANCH.value
+            BRANCHES_TO_CREATE                          = [GB.OPERATE_BRANCH.value]
+        else:
+            LOCAL_ROOT                                  = P["local_development"]["dev_root"] if root_folder is None else root_folder
+            WORKING_BRANCH                              = P["git"]["working_branch"]
+            BRANCHES_TO_CREATE                          = [GB.INTEGRATION_BRANCH.value, WORKING_BRANCH]
+
         USER                                            = P["git"]["user"]["name"]
 
         REMOTE_ROOT                                     = f"https://{USER}@github.com/{GH_ORGANIZATION}"
 
-        # Step 1: clone all applicable repos
-        #
-        cloned_repo_l = []
-        for some_repo_name in REPO_LIST:
+        # Per CCL policy, we don't want to clone the master branch, since it should never exist locally.
+        # Therefore have to clone a different branch and only bring in that branch during the cloning.
+        branch_to_clone                                 = BRANCHES_TO_CREATE[0]
+        kwargs                                          = {"branch": branch_to_clone}
 
-            cloned_repo                                 = Repo.clone_from(f"{REMOTE_ROOT}/{some_repo_name}.git", 
-                                                                      f"{LOCAL_ROOT}/{project}/{some_repo_name}")
-            cloned_repo_l.append(cloned_repo)
+        repos_to_clone                                  = REPO_LIST if filter is None else [n for n in REPO_LIST if n in filter] 
+        
+        Logger.log_info(f"Will set up repos {repos_to_clone} after applying filter {filter}")
 
-        # Step 2:  create working branch
-        #
-        for some_repo in cloned_repo_l:
+        for some_repo_name in repos_to_clone:
 
-            executor                                    = GitClient(some_repo.working_dir)
-            # Only create branch with '-b' option if it already exists.
-            if executor.execute(command                 = f"git branch --list {WORKING_BRANCH}") == "":
-                executor.execute(command                = f"git checkout -b {WORKING_BRANCH}")
-            else:
-                executor.execute(command                = f"git checkout {WORKING_BRANCH}")
+            with Profiler(f"Setting up repo '{some_repo_name}'"):
 
-            # Check if branch exists in remote. If not, push local branch. If yes, set it as the upstream.
-            if executor.execute(command                 = f"git ls-remote --heads origin {WORKING_BRANCH}") == "":
-                executor.execute(command                = f"git push origin -u {WORKING_BRANCH}")
-            else:
-                executor.execute(command                = f"git branch --set-upstream-to=origin/{WORKING_BRANCH} {WORKING_BRANCH}")
+                Logger.log_info(f"\t... cloning repo '{some_repo_name}' ...")
 
-        # Step 3: configure repos
-        #
-        # GOTCHA
-        # Configuring BeyondCompare to work in WSL can be tricky. These settings are based on this post:
-        #
-        # https://stackoverflow.com/questions/71093803/git-with-beyond-compare-4-on-wsl2-windows-11-not-opening-the-repo-version
-        #
-        for some_repo in cloned_repo_l:
-            self.configure(some_repo.working_dir)
+                cloned_repo                                 = Repo.clone_from(f"{REMOTE_ROOT}/{some_repo_name}.git", 
+                                                                        f"{LOCAL_ROOT}/{project}/{some_repo_name}",
+                                                                        **kwargs)
+
+                Logger.log_info(f"\t... creating branches {BRANCHES_TO_CREATE[1:]} for repo '{some_repo_name}' ...")
+
+                for branch in BRANCHES_TO_CREATE[1:]:
+                
+
+                    executor                                = GitClient(cloned_repo.working_dir)
+                    # Only create branch with '-b' option if it already exists.
+                    if executor.execute(command             = f"git branch --list {branch}") == "":
+                        executor.execute(command            = f"git checkout -b {branch}")
+                    else:
+                        executor.execute(command            = f"git checkout {branch}")
+
+                    # Check if branch exists in remote. If not, push local branch. If yes, set it as the upstream.
+                    if executor.execute(command             = f"git ls-remote --heads origin {branch}") == "":
+                        executor.execute(command            = f"git push origin -u {branch}")
+                    else:
+                        executor.execute(command            = f"git branch --set-upstream-to=origin/{branch} {branch}")
+
+                Logger.log_info(f"\t... configuring repo '{some_repo_name}' ...")
+                self.configure(cloned_repo.working_dir)
 
     def configure(self, repo_path):
         '''
@@ -122,6 +149,12 @@ class RepoSetup():
     
         executor.execute(command                        = f'git config --local difftool.bc.path "{BC_PATH}"')
         executor.execute(command                        = f'git config --local difftool.bc.trustExitCode true')
+
+        # GOTCHA
+        # Configuring BeyondCompare to work in WSL can be tricky. These settings are based on this post:
+        #
+        # https://stackoverflow.com/questions/71093803/git-with-beyond-compare-4-on-wsl2-windows-11-not-opening-the-repo-version
+
     
         # For the difftool.bc.cmd, we need to map the local and remote paths between WSL and Windows, and to do that
         # we need to pass a setting for which the quotes can get a little tricky. 

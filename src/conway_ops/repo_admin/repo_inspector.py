@@ -70,19 +70,9 @@ class RepoInspector(abc.ABC):
         '''
 
     @abc.abstractmethod
-    def pull_request(self, from_branch, to_branch):
+    def pull_request(self, from_branch, to_branch, title, body):
         '''
         Creates and completes a pull request from the ``from_branch`` to the ``to_branch``.
-
-        If anything goes wrong it raises an exception.
-        '''
-
-    @abc.abstractmethod
-    def checkout(self, branch):
-        '''
-        Switches the repo to the given branch.
-
-        :param str branch: branch to switch repo to.
 
         If anything goes wrong it raises an exception.
         '''
