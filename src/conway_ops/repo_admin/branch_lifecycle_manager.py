@@ -82,24 +82,25 @@ class BranchLifecycleManager(RepoAdministration):
         Does a pull request to update the remote master from the remote integration, and vice versa.
         '''
         GB                                              = GitBranches
+        app_name                                        = Application.app().app_name
+        master                                          = GB.MASTER_BRANCH.value
+        integration                                     = GB.INTEGRATION_BRANCH.value
         for repo_name in self.repo_names():
             self.log_info("\n-----------" + repo_name + "-----------")
 
             inspector                                   = RepoInspectorFactory.findInspector(self.remote_root,
                                                                                              repo_name)
-            app_name                                    = Application.app().app_name
-            master                                      = GB.MASTER_BRANCH.value
-            integration                                 = GB.INTEGRATION_BRANCH.value
+
             downstream_pr                               = inspector.pull_request(
                                                             from_branch          = master, 
                                                             to_branch            = integration,
-                                                            title                = f"Merge {master} -> {integration}",
+                                                            title                = f"Merge {master} -> {integration} (remote)",
                                                             body                 = f"Automated PR creation by {app_name}")
             
             upstream_pr                                 = inspector.pull_request(
                                                             from_branch          = integration, 
                                                             to_branch            = master,
-                                                            title                = f"Merge {integration} -> {master}",
+                                                            title                = f"Merge {integration} -> {master} (remote)",
                                                             body                 = f"Automated PR creation by {app_name}")
 
     def publish_release(self):
@@ -118,22 +119,24 @@ class BranchLifecycleManager(RepoAdministration):
         branch.
         '''
         GB                                              = GitBranches
+        app_name                                        = Application.app().app_name
+        master                                          = GB.MASTER_BRANCH.value
+        operate                                         = GB.OPERATE_BRANCH.value            
         for repo_name in self.repo_names():
             self.log_info("\n-----------" + repo_name + "-----------")
 
             remote_inspector                            = RepoInspectorFactory.findInspector(self.remote_root,
                                                                                              repo_name)
-            
-            remote_inspector.pull_request(from_branch = GB.MASTER_BRANCH.value, to_branch = GB.OPERATE_BRANCH.value)
-
-            # Make sure we end up in the master branch after updating the remote operate branch
-            remote_inspector.checkout(GB.MASTER_BRANCH.value)
+            remote_inspector.pull_request(from_branch   = master, 
+                                          to_branch     = operate,
+                                          title         = f"Merge {master} -> {operate} (remote)",
+                                          body          = f"Automated PR creation by {app_name}")
 
             local_inspector                            = RepoInspectorFactory.findInspector(self.local_root,
                                                                                              repo_name)
 
 
-            local_inspector.update_local(GB.OPERATE_BRANCH.value)
+            local_inspector.update_local(operate)
 
     def publish_hot_fix(self):
         '''
@@ -150,6 +153,11 @@ class BranchLifecycleManager(RepoAdministration):
         3. Does a pull to the local integration branch.
         '''
         GB                                              = GitBranches
+        app_name                                        = Application.app().app_name
+        master                                          = GB.MASTER_BRANCH.value
+        integration                                     = GB.INTEGRATION_BRANCH.value
+        operate                                         = GB.OPERATE_BRANCH.value            
+
         for repo_name in self.repo_names():
             self.log_info("\n-----------" + repo_name + "-----------")
 
@@ -157,21 +165,22 @@ class BranchLifecycleManager(RepoAdministration):
             local_inspector                             = RepoInspectorFactory.findInspector(self.local_root, repo_name)
             
             self.log_info("\n\t\t ***** In the remote...")
+
             # Update operate => master (remote)
-            remote_inspector.pull_request(from_branch = GB.OPERATE_BRANCH.value, to_branch = GB.MASTER_BRANCH.value)
+            remote_inspector.pull_request(from_branch   = operate, 
+                                          to_branch     = master,
+                                          title         = f"Merge {operate} -> {master} (remote)",
+                                          body          = f"Automated PR creation by {app_name}")
 
             # Update master => integration (remote)
-            remote_inspector.pull_request(from_branch = GB.MASTER_BRANCH.value, to_branch = GB.INTEGRATION_BRANCH.value)
-
-            # Make sure we end up in the master branch after updating the remote operate branch
-            remote_inspector.checkout(GB.MASTER_BRANCH.value)
+            remote_inspector.pull_request(from_branch   = master, 
+                                          to_branch     = integration,
+                                          title         = f"Merge {master} -> {integration} (remote)",
+                                          body          = f"Automated PR creation by {app_name}")
 
             self.log_info("\n\t\t ***** In the local...")
             # Now update local integration from the remote
-            local_inspector.update_local(GB.INTEGRATION_BRANCH.value)
-
-            # Make sure to come back to the operate branch (as above command moved us to the integration branch)
-            local_inspector.checkout(GB.OPERATE_BRANCH.value)
+            local_inspector.update_local(integration)
 
     def complete_feature(self, feature_branch, remove_feature_branch=False):
         '''
@@ -182,6 +191,8 @@ class BranchLifecycleManager(RepoAdministration):
         Raises an exception if there is uncommitted work in the feature branch.
         '''
         GB                                              = GitBranches
+        integration                                     = GB.INTEGRATION_BRANCH.value
+
         # First check that there is nothing checked out
         for repo_name in self.repo_names():
             self.log_info("\n-----------" + repo_name + "-----------")
@@ -208,21 +219,22 @@ class BranchLifecycleManager(RepoAdministration):
             self.log_info("\n-----------" + repo_name + "-----------")
 
             working_dir                                 = self.local_root + "/" + repo_name
+            
             _os.chdir(working_dir)
             self.log_info("Working in folder '" + working_dir + "'")
             executor                                    = GitClient(working_dir)
 
-            status1                                     = executor.execute("git checkout " + GB.INTEGRATION_BRANCH.value)
-            self.log_info("Checkout '" + GB.INTEGRATION_BRANCH.value + "':\n" + str(status1))
+            status1                                     = executor.execute("git checkout " + integration)
+            self.log_info("Checkout '" + integration + "':\n" + str(status1))
 
             status2                                     = executor.execute(command = 'git pull')
-            self.log_info("Pull '" + GB.INTEGRATION_BRANCH.value + "':\n" + str(status2)) 
+            self.log_info("Pull '" + integration + "':\n" + str(status2)) 
 
             status3                                     = executor.execute("git merge " + str(feature_branch))
             self.log_info("Merge '" + str(feature_branch) + "':\n" + str(status3))
 
             status4                                     = executor.execute(command = 'git push')
-            self.log_info("Push '" + GB.INTEGRATION_BRANCH.value + "':\n" + str(status4)) 
+            self.log_info("Push '" + integration + "':\n" + str(status4)) 
 
     def commit_feature(self, feature_branch, commit_msg):
         '''
@@ -322,17 +334,20 @@ class BranchLifecycleManager(RepoAdministration):
         then it raises an exception and does not remove the branch in any repo.
         '''
         GB                                              = GitBranches
+        integration                                     = GB.INTEGRATION_BRANCH.value
+
         # First check that everything was merged already to the integration branch
         unmerged_repos                                  = []
+        
         for repo_name in self.repo_names():
             if not self.is_branch_merged_to_destination(repo_name, 
                                                         branch_name         = feature_branch, 
-                                                        destination_branch  = GB.INTEGRATION_BRANCH.value):
+                                                        destination_branch  = integration):
                 unmerged_repos.append(repo_name)
 
         if len(unmerged_repos) > 0:
             raise ValueError("Can't remove branch '" + str(feature_branch) + "' because it has not yet been merged "
-                             + " with the '" + GB.INTEGRATION_BRANCH.value + "' branch in these repo(s): "
+                             + " with the '" + integration + "' branch in these repo(s): "
                              + ", ".join(unmerged_repos))
         
         # If we get this far, then all work has been merged, so we can safely remove the branch
@@ -354,16 +369,21 @@ class BranchLifecycleManager(RepoAdministration):
         feature branch.
         '''
         GB                                              = GitBranches
+        app_name                                        = Application.app().app_name
+        integration                                     = GB.INTEGRATION_BRANCH.value
         for repo_name in self.repo_names():
             self.log_info("\n-----------" + repo_name + "-----------")
 
             local_inspector                             = RepoInspectorFactory.findInspector(self.local_root, repo_name)
 
             # First, refresh the local integration branch from the remote integration branch
-            local_inspector.update_local(GB.INTEGRATION_BRANCH.value)
+            local_inspector.update_local(integration)
 
             # Now merge integration into feature branch
-            local_inspector.pull_request(from_branch = GB.INTEGRATION_BRANCH.value, to_branch = feature_branch)
+            local_inspector.pull_request(from_branch    = integration, 
+                                         to_branch      = feature_branch,
+                                         title          = f"Merge {integration} -> {feature_branch} (local)",
+                                         body           = f"Automated PR creation by {app_name}")
 
     def refresh_from_remote(self, feature_branch):
         '''
