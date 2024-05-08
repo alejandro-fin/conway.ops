@@ -77,6 +77,7 @@ class NotebookUtils(abc.ABC):
         from conway_ops.onboarding.repo_setup                                   import RepoSetup
         from conway_ops.scaffolding.scaffold_generator                          import ScaffoldGenerator
         from conway_ops.scaffolding.scaffold_spec                               import ScaffoldSpec
+        from conway_ops.util.git_branches                                       import GitBranches
         from conway_ops.util.git_client                                         import GitClient
         
         from conway.application.application                                     import Application
@@ -95,6 +96,7 @@ class NotebookUtils(abc.ABC):
         self.RepoSetup                          = RepoSetup
         self.ScaffoldGenerator                  = ScaffoldGenerator
         self.ScaffoldSpec                       = ScaffoldSpec
+        self.GitBranches                        = GitBranches
         self.GitClient                          = GitClient
 
         self.Application                        = Application
