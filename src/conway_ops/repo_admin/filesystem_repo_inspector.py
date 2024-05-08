@@ -327,28 +327,17 @@ class FileSystem_RepoInspector(RepoInspector):
         original_branch     = self.current_branch()
         executor            = GitClient(self.parent_url + "/" + self.repo_name) 
 
-        status1             = executor.execute(command = 'git checkout ' + to_branch)
-        Logger.log_info("Checkout '" + to_branch + "':\n" + str(status1))
+        if to_branch != original_branch:
+            status1         = executor.execute(command = 'git checkout ' + to_branch)
+            Logger.log_info(f"@ '{to_branch}' (local):\n\n{status1}")
 
         status2             = executor.execute(command = 'git merge ' + from_branch)
-        Logger.log_info("Merge from '" + from_branch + "':\n" + str(status2))
+        Logger.log_info(f"'{from_branch}' (local) -> '{to_branch}' (local):\n\n{status2}")
 
         # Restore original branch
-        self._checkout(original_branch)
-
-    def _checkout(self, branch):
-        '''
-        Switches the repo to the given branch.
-
-        :param str branch: branch to switch repo to.
-
-        If anything goes wrong it raises an exception.
-        '''
-        executor            = GitClient(self.parent_url + "/" + self.repo_name) 
-
-        status1             = executor.execute(command = 'git checkout ' + branch)
-        Logger.log_info("Checkout '" + branch + "':\n" + str(status1))
-
+        if to_branch != original_branch:
+            status3             = executor.execute(command = 'git checkout ' + original_branch)
+            Logger.log_info(f"@ '{original_branch}' (local):\n\n{status3}")
 
     def update_local(self, branch):
         '''
@@ -358,17 +347,21 @@ class FileSystem_RepoInspector(RepoInspector):
 
         :param str branch: repo local branch to update from the remote.
         '''
-        Logger.log_info("\t\t*** using " + str(self.parent_url) + " ***")
+        Logger.log_info(f"local = '{self.parent_url}/{self.repo_name}'")
         # Remember the original branch that is checked out in the remote, so that later we can go back to it
         original_branch     = self.current_branch()
 
         executor            = GitClient(self.parent_url + "/" + self.repo_name) 
 
-        status1             = executor.execute(command = 'git checkout ' + branch)
-        Logger.log_info("Checkout '" + branch + "':\n" + str(status1))
+        if branch != original_branch:
+            status1         = executor.execute(command = 'git checkout ' + branch)
+            Logger.log_info(f"@ '{branch}' (local):\n\n{status1}")
 
         status2             = executor.execute(command = 'git pull')
-        Logger.log_info("Pull '" + branch + "':\n" + str(status2))
+        Logger.log_info(f"'{branch}' (remote) -> '{branch}' (local):\n\n{status2}")
 
         # Restore original branch
-        self._checkout(original_branch)
+        if branch != original_branch:
+            status3             = executor.execute(command = 'git checkout ' + original_branch)
+            Logger.log_info(f"@ '{original_branch}' (local):\n\n{status3}")
+            
