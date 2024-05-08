@@ -315,19 +315,18 @@ class BranchLifecycleManager(RepoAdministration):
 
             # First check if there is anything to commit. We check because if there is nothing to commit
             # and we try to commit, we will get error messages
-            status0                                     = executor.execute(command = 'git status')
-            self.log_info("Status '" + str(feature_branch) + "':\n" + str(status0)) 
+            status                                      = self._STATUS(executor, feature_branch) 
         
             CLEAN_TREE_MSG                              = "nothing to commit, working tree clean"
-            if not CLEAN_TREE_MSG in status0:            
+            if not CLEAN_TREE_MSG in status:            
                 status1                                 = executor.execute(command = 'git add .')
-                self.log_info("Staging '" + str(feature_branch) + "':\n" + str(status1)) 
+                self.log_info(f"'{feature_branch}' (working tree) -> '{feature_branch}' (staging area):\n{status1}") 
                 # GOTCHA
                 #   Git commit will fail unless the commit message is surrounded by *double* quotes (will fail if using single
                 #   quote)
                 #       UPSHOT: nest double quotes inside single quotes: the command is a string defined by single quotes
                 status2                                 = executor.execute(command = 'git commit -m "' + str(commit_msg) + '"')
-                self.log_info("Commit '" + str(feature_branch) + "':\n" + str(status2)) 
+                self.log_info(f"'{feature_branch}' (staging area) -> '{feature_branch}' (local):\n{status2}") 
             
             # When the remote is in GitHub, for the git push to work, we will need to use our specific owner and 
             # token for the remote. So set them up if needed:
@@ -349,7 +348,7 @@ class BranchLifecycleManager(RepoAdministration):
                               + f"https://github.com/git-ecosystem/git-credential-manager/blob/main/docs/multiple-users.md")
                 raise ex
 
-            self.log_info("Push '" + str(feature_branch) + "':\n" + str(status3)) 
+            self.log_info(f"'{feature_branch}' (local) -> '{feature_branch}' (remote):\n{status3}") 
 
     def work_on_feature(self, feature_branch):
         '''
