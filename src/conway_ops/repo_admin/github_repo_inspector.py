@@ -242,7 +242,8 @@ class GitHub_RepoInspector(RepoInspector):
         if pr_result is None:
             return None
         else:
-            return self._merge_pull_request(pr_result, title)
+            pull_number                     = pr_result['number']
+            return self._merge_pull_request(pr_result, f"[PR #{pull_number}] {title}")
     
     def _create_pull_request(self, from_branch, to_branch, title, body):
         '''
@@ -266,10 +267,11 @@ class GitHub_RepoInspector(RepoInspector):
 
         pr_result                           =  self.POST("/pulls", pr_data)
         if pr_result is None:
-            Application.app().log(f"Pull request {from_branch}->{to_branch} is not needed, so it was not created")
+            Application.app().log(f"{from_branch}->{to_branch}: no merge needed")
             return None
         else:
-            Application.app().log(f"Pull request {from_branch}->{to_branch} created")
+            pull_number                     = pr_result['number']
+            Application.app().log(f"{from_branch}->{to_branch}: PR #{pull_number} created")
 
         return pr_result
         
@@ -297,7 +299,7 @@ class GitHub_RepoInspector(RepoInspector):
 
         merge_result                    =  self.PUT(f"/pulls/{pull_number}/merge", merge_data)
 
-        Application.app().log(f"Merged pull request {from_branch}->{to_branch}")
+        Application.app().log(f"{from_branch}->{to_branch}: PR #{pull_number} merged")
 
         return merge_result
 

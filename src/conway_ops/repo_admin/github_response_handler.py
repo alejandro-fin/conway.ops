@@ -29,7 +29,7 @@ class GitHub_ReponseHandler(HTTP_ResponseHandler):
                                     'message': msg                  \
                             }],                                                             \
                             'documentation_url': doc_url}:
-                        Application.app().log(f"Pull request ignored because of this message: '{msg}'")
+                        Application.app().log(f"PR ignored: '{msg}'")
                         return None
 
                     case _:
