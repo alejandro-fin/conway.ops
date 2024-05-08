@@ -243,7 +243,7 @@ class GitHub_RepoInspector(RepoInspector):
             return None
         else:
             pull_number                     = pr_result['number']
-            return self._merge_pull_request(pr_result, f"PR #{pull_number}: {title}")
+            return self._merge_pull_request(pr_result, f"[PR #{pull_number}] {title}")
     
     def _create_pull_request(self, from_branch, to_branch, title, body):
         '''
