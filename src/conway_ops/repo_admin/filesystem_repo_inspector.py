@@ -2,6 +2,7 @@ import git
 import datetime as _dt
 
 from conway.observability.logger                                    import Logger
+from conway.util.date_utils                                         import DateUtils
 
 from conway_ops.repo_admin.repo_inspector                           import RepoInspector, CommitInfo, CommittedFileInfo
 from conway_ops.util.git_client                                     import GitClient
@@ -133,6 +134,12 @@ class FileSystem_RepoInspector(RepoInspector):
         #           "230614.203257"
         #
         parsed_dt                           =  _dt.datetime.strptime(tokens[1], "%Y-%m-%d %H:%M:%S %z")
+
+        # Convert the commit date the the standard timezone used in CCL, which is California
+        #
+        parsed_dt                           = DateUtils().to_ccl_timezone(parsed_dt)
+
+
         commit_ts                           = parsed_dt.strftime("%y%m%d.%H%M%S")
 
         commit_msg                          = "|".join(tokens[2:])
