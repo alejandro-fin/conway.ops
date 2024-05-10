@@ -62,7 +62,7 @@ class RepoSetup():
 
         GH_ORGANIZATION                                 = P["git"]["github_organization"]
   
-        REPO_LIST                                       = P["projects"][project]
+        REPO_LIST                                       = P["projects"][project]["repos"]
         
         if operate:
             LOCAL_ROOT                                  = P["operate"]["operate_root"] if root_folder is None else root_folder

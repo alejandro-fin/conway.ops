@@ -23,6 +23,8 @@ class NotebookUtils(abc.ABC):
       to run the notebook using this class. 
 
     :param str project_name: name of Conway-based application. Used in displays and to access names of repos
+    :param repo_directory: path to the repo containing the Python file that implementes the concrete class for
+                instantiated by self.
     '''
     def __init__(self, project_name, repo_directory):
 

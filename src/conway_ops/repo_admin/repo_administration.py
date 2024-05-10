@@ -31,21 +31,24 @@ class RepoAdministration():
     :param str remote_gh_user: GitHub username with rights to the remote repository. If the remote is not in
         GitHub, it may be set to None
 
-    :param str gb_secrets_path: path in the local file system for a file that contains a GitHub token to access the remote.
+    :param str remote_gh_organization: the owner of the remote GitHub repo. Might be an organization or a user.
+
+    :param str gh_secrets_path: path in the local file system for a file that contains a GitHub token to access the remote.
         The token must correspond to the user given by the `remote_gh_user` parameter. If the remote is not in GitHub
         then it may be set to None
 
     '''
-    def __init__(self, local_root, remote_root, repo_bundle, remote_gh_user, gb_secrets_path):
+    def __init__(self, local_root, remote_root, repo_bundle, remote_gh_user, remote_gh_organization, gh_secrets_path):
         self.local_root                                 = local_root
         self.remote_root                                = remote_root
         self.repo_bundle                                = repo_bundle
         self.remote_gh_user                             = remote_gh_user
-        self.gb_secrets_path                            = gb_secrets_path
+        self.remote_gh_organization                     = remote_gh_organization
+        self.gh_secrets_path                            = gh_secrets_path
 
         # Load the token for accessing the remote in GitHub, if we indeed are using GitHub and have a secrets path
-        if not self.gb_secrets_path is None:
-            secrets_dict                                = YAML_Utils().load(self.gb_secrets_path)
+        if not self.gh_secrets_path is None:
+            secrets_dict                                = YAML_Utils().load(self.gh_secrets_path)
             self.github_token                           = secrets_dict['secrets']['github_token']  
         else:
             self.github_token                           = None          
