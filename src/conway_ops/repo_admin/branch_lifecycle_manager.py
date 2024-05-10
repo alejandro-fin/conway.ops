@@ -68,14 +68,14 @@ class BranchLifecycleManager(RepoAdministration):
     :param str remote_gh_user: GitHub username with rights to the remote repository. If the remote is not in
         GitHub, it may be set to None
 
-    :param str gb_secrets_path: path in the local file system for a file that contains a GitHub token to access the remote.
+    :param str gh_secrets_path: path in the local file system for a file that contains a GitHub token to access the remote.
         The token must correspond to the user given by the `remote_gh_user` parameter. If the remote is not in GitHub
         then it may be set to None
 
     '''
-    def __init__(self, local_root, remote_root, repo_bundle, remote_gh_user, gb_secrets_path):
+    def __init__(self, local_root, remote_root, repo_bundle, remote_gh_user, remote_gh_organization, gh_secrets_path):
 
-        super().__init__(local_root, remote_root, repo_bundle, remote_gh_user, gb_secrets_path)
+        super().__init__(local_root, remote_root, repo_bundle, remote_gh_user, remote_gh_organization, gh_secrets_path)
 
     def pull_request_integration_to_master(self):
         '''
@@ -333,8 +333,9 @@ class BranchLifecycleManager(RepoAdministration):
             #
             if not self.github_token is None and not self.remote_gh_user is None:
                 USER                                    = self.remote_gh_user
+                GH_ORGANIZATION                         = self.remote_gh_organization
                 PWD                                     = self.github_token
-                CMD                                     = f"git remote set-url origin https://{USER}:{PWD}@github.com/{USER}/{repo_name}.git"
+                CMD                                     = f"git remote set-url origin https://{USER}:{PWD}@github.com/{GH_ORGANIZATION}/{repo_name}.git"
                 executor.execute(command = CMD)
 
             try:
