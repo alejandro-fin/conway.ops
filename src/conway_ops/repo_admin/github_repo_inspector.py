@@ -1,8 +1,8 @@
 import requests                                             as _requests
 from dateutil                                               import parser as _parser
 
-
 from conway.application.application                         import Application
+from conway.util.date_utils                                 import DateUtils
 from conway.util.yaml_utils                                 import YAML_Utils
 
 from conway_ops.repo_admin.github_response_handler          import GitHub_ReponseHandler
@@ -169,6 +169,10 @@ class GitHub_RepoInspector(RepoInspector):
         data                                = self.GET("/commits/master")
         
         commit_datetime                     = _parser.parse(data['commit']['author']['date'])
+
+        # Convert the commit date the the standard timezone used in CCL, which is California
+        #
+        commit_datetime                     = DateUtils().to_ccl_timezone(commit_datetime)
         
         commit_hash                         = data['sha']
 
