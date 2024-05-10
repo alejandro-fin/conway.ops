@@ -350,6 +350,20 @@ class BranchLifecycleManager(RepoAdministration):
 
             self.log_info(f"'{feature_branch}' (local) -> '{feature_branch}' (remote):\n{status3}") 
 
+    def commit_hot_fix(self, commit_msg):
+        '''
+        Commits all (local) work in operate branch using the common commit comment ``commit_msg`` and pushes
+        everything to the remote.
+        
+        Raises an exception if the current branch is not the operate branch.
+
+        :param str feature_branch: name of branch to commit
+        :param str commit_msg: comment to apply in the commits
+
+        '''
+        GB                                              = GitBranches
+        return self.commit_feature(GB.OPERATE_BRANCH.value, commit_msg)
+
     def work_on_feature(self, feature_branch):
         '''
         Switches all repos to the ``feature_branch``. If it does not exist, it is created in both local
