@@ -46,65 +46,96 @@ class GitHub_RepoInspector(RepoInspector):
         #self.github_api_url                             = f"https://{self.owner}@api.github.com"
         self.github_api_url                             = f"https://api.github.com"
     
-    def GET(self, resource_path, resource="repos"):
+    def GET(self, resource, sub_path):
         '''
         Invokes the "GET" HTTP verb on the Git Hub API to get a resource associated to this inspector's repo.
 
-        :param str resource_path: Indicates the path of a desired resource to create or update, under the URL for the
-            repo for which self is an inspector. Examples: "/commits/master", "/branches", "/pulls" 
+        :param str resource: indicates the top resource for the API. For example, "{owner}/repos". 
+        :param str sub_path: Indicates the path of a desired sub-resource to get, under the URL for the
+            `resource`. Examples: "/commits/master", "/branches", "/pulls" 
+
         :return: A Json representation of the resource as given by the GitHub API
         :rtype: str
         '''
-        return self._http_call("GET", resource_path=resource_path, body={}, resource=resource)
+        return self._http_call("GET", resource=resource, sub_path=sub_path, body={}, )
     
-    def POST(self, resource_path, body, resource="repos"):
+    def POST(self, resource, sub_path, body):
         '''
         Invokes the "POST" HTTP verb on the Git Hub API to create a resource associated to this inspector's repo.
 
-        :param str resource_path: Indicates the path of a desired resource to create or update, under the URL for the
-            repo for which self is an inspector. Examples: "/commits/master", "/branches", "/pulls" 
-        :param dict body: payload to submit in the HTTP request.
+        :param str resource: indicates the top resource for the API. For example, "{owner}/repos". 
+        :param str sub_path: Indicates the path of a desired sub-resource to create, under the URL for the
+            `resource`. Examples: "/commits/master", "/branches", "/pulls" 
+        :param dict|list body: JSON object to submit in the HTTP request.
         :return: A Json representation of the resource as given by the GitHub API
         :rtype: str
         '''
-        return self._http_call("POST", resource_path=resource_path, body=body, resource=resource)
+        return self._http_call("POST", resource=resource, sub_path=sub_path, body=body)
     
-    def PUT(self, resource_path, body, resource="repos"):
+    def PUT(self, resource, sub_path, body):
         '''
         Invokes the "PUT" HTTP verb on the Git Hub API to update a resource associated to this inspector's repo.
 
-        :param str resource_path: Indicates the path of a desired resource to create or update, under the URL for the
-            repo for which self is an inspector. Examples: "/commits/master", "/branches", "/pulls" 
+        :param str resource: indicates the top resource for the API. For example, "{owner}/repos".
+        :param str sub_path: Indicates the path of a desired sub-resource to update, under the URL for the
+            `resource`. Examples: "/commits/master", "/branches", "/pulls" 
+ 
+        :param dict|list body: JSON object to submit in the HTTP request.
+        :return: A Json representation of the resource as given by the GitHub API
+        :rtype: str
+        '''
+        return self._http_call("PUT", sub_path=sub_path, body=body, resource=resource)
+           
+    def DELETE(self, resource, sub_path):
+        '''
+        Invokes the "DELETE" HTTP verb on the Git Hub API to update a resource associated to this inspector's repo.
+
+        :param str resource: indicates the top resource for the API. For example, "{owner}/repos". 
+        :param str sub_path: Indicates the path of a desired sub-resource to delete, under the URL for the
+            `resource`. Examples: "/commits/master", "/branches", "/pulls" 
+
         :param dict body: payload to submit in the HTTP request.
         :return: A Json representation of the resource as given by the GitHub API
         :rtype: str
         '''
-        return self._http_call("PUT", resource_path=resource_path, body=body, resource=resource)
-           
-    
-    def _http_call(self, method, resource_path, body={}, resource="repos"):
+        return self._http_call("DELETE", sub_path=sub_path, resource=resource)
+        
+    def _http_call(self, method, resource, sub_path, body={}):
         '''
         Invokes the Git Hub API to get information about the repo associated to this inspector.
 
         :param str method: the HTTP verb to use ("GET", "POST", or "PUT")
-        :param str resource_path: Indicates the path of a desired resource to create or update, under the URL for the
-            repo for which self is an inspector. Examples: "/commits/master", "/branches", "/pulls"
+        :param str sub_path: Indicates the path of a desired sub-resource to delete, under the URL for the
+            `resource`. Examples: "/commits/master", "/branches", "/pulls" 
+        :param str resource: indicates the top resource for the API. For example, "repos". It is an optional
+            argument that defaults to "repos" if it is not provided.
         :param dict body: optional payload to submit in the HTTP request. 
         :return: A Json representation of the resource as given by the GitHub API
         :rtype: str
         '''
         match resource:
             case "repos":
-                root_path                   = f"{self.github_api_url}/repos/{self.owner}/{self.repo_name}"
+                root_path                   = f"{self.github_api_url}/repos/{self.owner}"
             case "orgs":
                 root_path                   = f"{self.github_api_url}/orgs/{self.owner}"
+            case "users":
+                root_path                   = f"{self.github_api_url}/users/{self.owner}"
+            case "user":
+                # GOTCHA:
+                #       The "user" resource represents the currently authenticated user. As opposed to the "users"
+                #   resource, which can manipulate "other" users different from the currently authenticated user.
+                #   To create/update repos for a user, use the "user" resource, not the "users" resource.
+                root_path                   = f"{self.github_api_url}/user"
             case "": # Return meta information
                 root_path                   = f"{self.github_api_url}"
             case _:
                 raise ValueError(f"Unsupported GitHub resource '{resource}'")
             
-        url                                 = root_path + resource_path
+        url                                 = root_path + sub_path
 
+        # Uncomment to debug
+        #Application.app().log(f"... calling '{method} {url}'")
+        
         headers = {
             'Authorization': 'Bearer ' + self.github_token,
             'Content-Type' : 'application/json',
@@ -117,7 +148,6 @@ class GitHub_RepoInspector(RepoInspector):
         try:
             response                        = _requests.request(method          = method, 
                                                                 url             = url, 
-                                                                params          = {}, 
                                                                 json            = body,
                                                                 headers         = headers, 
                                                                 timeout         = 20,
@@ -175,7 +205,8 @@ class GitHub_RepoInspector(RepoInspector):
         :return: A :class:`CommitInfo` with information about last commit"
         :rtype: str
         '''
-        data                                = self.GET("/commits/master")
+        data                                = self.GET(resource = "repos",
+                                                       sub_path = f"/{self.repo_name}/commits/master")
         
         commit_datetime                     = _parser.parse(data['commit']['author']['date'])
 
@@ -198,7 +229,8 @@ class GitHub_RepoInspector(RepoInspector):
         :return: (local) branches for the repo
         :rtype: list[str]
         '''
-        data                                = self.GET("/branches")
+        data                                = self.GET(resource = "repos",
+                                                       sub_path = f"/{self.repo_name}/branches")
 
         result                              = [b['name'] for b in data]
 
@@ -210,7 +242,8 @@ class GitHub_RepoInspector(RepoInspector):
         (i.e., a log) for the repo associated to this :class:`RepoInspector`
         '''
         # This provides the first most recent commit, and links to "parent" commits - the commits right before it
-        data                                = self.GET("/commits/master")
+        data                                = self.GET(resource = "repos",
+                                                       sub_path = f"/{self.repo_name}/commits/master")
 
         results_dict                        = self._committed_files_impl(results_dict_so_far={}, data=data)
 
@@ -278,7 +311,10 @@ class GitHub_RepoInspector(RepoInspector):
                                                "base":      to_branch}
 
 
-        pr_result                           =  self.POST("/pulls", pr_data)
+        pr_result                           =  self.POST(
+                                                        resource    = "repos",
+                                                        sub_path    = f"/{self.repo_name}/pulls", 
+                                                        body        = pr_data)
         if pr_result is None:
             Application.app().log(f"{from_branch}->{to_branch}: no merge needed")
             return None
@@ -310,7 +346,9 @@ class GitHub_RepoInspector(RepoInspector):
                                                 "sha":              sha,
                                                 "merge_method":     "merge"}
 
-        merge_result                    =  self.PUT(f"/pulls/{pull_number}/merge", merge_data)
+        merge_result                    =  self.PUT(    resource    = "repos",
+                                                        sub_path    = f"/{self.repo_name}/pulls/{pull_number}/merge", 
+                                                        body        = merge_data)
 
         Application.app().log(f"{from_branch}->{to_branch}: PR #{pull_number} merged")
 
@@ -380,7 +418,8 @@ class GitHub_RepoInspector(RepoInspector):
         # Now do recursion, for each parent
         parents                             = data['parents']
         for p in parents:
-            p_data                          = self.GET(p['url'])
+            p_data                          = self.GET(resource = "repos",
+                                                       sub_path = f"/{self.repo_name}/{p['url']}")
             results_dict                    = self._committed_files_impl(results_dict, p_data)
 
         return results_dict

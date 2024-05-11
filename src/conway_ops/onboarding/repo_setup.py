@@ -76,10 +76,34 @@ class RepoSetup():
             with Profiler(f"Setting up repo '{some_repo_name}'"):
 
                 Logger.log_info(f"\t... cloning repo '{some_repo_name}' ...")
-
-                cloned_repo                                 = Repo.clone_from(f"{REMOTE_ROOT}/{some_repo_name}.git", 
-                                                                        f"{LOCAL_ROOT}/{project}/{some_repo_name}",
-                                                                        **kwargs)
+                remote_url                                  = f"{REMOTE_ROOT}/{some_repo_name}.git"
+                local_url                                   = f"{LOCAL_ROOT}/{project}/{some_repo_name}"
+                try:
+                    cloned_repo                             = Repo.clone_from(remote_url, local_url, **kwargs)
+                except Exception as ex:
+                    raise ValueError(f"Couldn't clone '{some_repo_name}'"
+                                     + f"\n\tremote = {remote_url}"
+                                     + f"\n\rlocal = {local_url}"
+                                     + f"\n\terror = {ex}"
+                                     )
+                
+                # Now that we cloned the repo, we may need to configure the remote to include the access token.
+                # This can happen during testing, for example, where the access token is for a test robot and therefore
+                # GitHub access tokens are not included in this machine's windows credentials
+                #
+                # We will determine if there is a need to do this based on the profile we are running under. 
+                # Obviously this is a security risk, since the access token will be added in clear text to the Git
+                # repo configuration. 
+                # So the profile should only allow this when it is a profile for resources that don't need to be protected,
+                # such as a test robot acting on discardable GitHub repos that only exist for testing purposes.
+                # 
+                #if P.OK_TO_DISPLAY_TOKEN():
+                assert(f"P.OK_TO_DISPLAY_TOKEN = {P.OK_TO_DISPLAY_TOKEN()}")
+                '''
+                /TestRobot@CCL/dev/scenario_8002/scenario_8002.svc  (testrobot)$ 
+                git config --local remote.origin.url 
+                https://testrobot-ccl:{TOKEN}@github.com/testrobot-ccl/scenario_8002.svc.git
+                '''
 
                 Logger.log_info(f"\t... creating branches {BRANCHES_TO_CREATE[1:]} for repo '{some_repo_name}' ...")
 

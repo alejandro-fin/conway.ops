@@ -50,6 +50,18 @@ class UserProfile():
         _REPO_LIST                                      = P["projects"][project]["repos"]
         return _REPO_LIST
     
+    def OK_TO_DISPLAY_TOKEN(self):
+        '''
+        This should normally return False, but for profiles specific to the test harness it may return true
+        when the tests need the access token to be visible in certain places (e.g., in the Git config remote's URL,
+        so that the test harness is not prompted by GIT for credentials)
+        '''
+        P                                               = self.profile_dict
+        if "ok_to_display_token" not in P["git"].keys():
+            return False
+        
+        return P["git"]["ok_to_display_token"]
+
     def OPS_REPO(self, project):
         '''
         '''
