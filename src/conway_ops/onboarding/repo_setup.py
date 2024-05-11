@@ -100,7 +100,6 @@ class RepoSetup():
                 #if P.OK_TO_DISPLAY_TOKEN():
                 assert(f"P.OK_TO_DISPLAY_TOKEN = {P.OK_TO_DISPLAY_TOKEN()}")
                 '''
-                /TestRobot@CCL/dev/scenario_8002/scenario_8002.svc  (testrobot)$ 
                 git config --local remote.origin.url 
                 https://testrobot-ccl:{TOKEN}@github.com/testrobot-ccl/scenario_8002.svc.git
                 '''
