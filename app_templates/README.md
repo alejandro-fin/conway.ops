@@ -11,7 +11,7 @@ contain:
 
 # Implementation note
 
-This functionality is based on ``Jinja2`` template functionality, but unlike ``Jinja2``, templating is limited to the
+This functionality is based on ``Jinja2`` template functionality, but unlike ``Jinja2``, templating is not limited to the
 contents of files. It is also supported to the names of folders, and so the generated code will not necessarily lie
 in the exact same relative paths as the templates from which the code is generated, since those relative paths are templated
 in the case of templates.

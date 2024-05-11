@@ -6,9 +6,10 @@ from conway.util.yaml_utils                                         import YAML_
 from conway_ops.onboarding.git_usage                                import GitUsage
 from conway_ops.onboarding.project_creation_context                 import ProjectCreationContext
 from conway_ops.onboarding.repo_bundle                              import RepoBundle
+from conway_ops.repo_admin.repo_administration                      import RepoAdministration
 from conway_ops.scaffolding.scaffold_generator                      import ScaffoldGenerator
 
-class ProjectCreation():
+class ProjectCreator(RepoAdministration):
 
     '''
     Class to assist operator to set up a development area by cloning all the multiple repos that comprise a 
@@ -24,24 +25,17 @@ class ProjectCreation():
     :param str remote_gh_user: GitHub username with rights to the remote repository. If the remote is not in
         GitHub, it may be set to None
 
+    :param str remote_gh_organization: the owner of the remote GitHub repo. Might be an organization or a user.
+        If the remote is not in GitHub, it may be set to None.
+
     :param str gh_secrets_path: path in the local file system for a file that contains a GitHub token to access the remote.
         The token must correspond to the user given by the `remote_gh_user` parameter. If the remote is not in GitHub
         then it may be set to None
 
     '''
-    def __init__(self, local_root, remote_root, repo_bundle, remote_gh_user, gh_secrets_path):
-        self.local_root                                 = local_root
-        self.remote_root                                = remote_root
-        self.repo_bundle                                = repo_bundle
-        self.remote_gh_user                             = remote_gh_user
-        self.gh_secrets_path                            = gh_secrets_path
+    def __init__(self, local_root, remote_root, repo_bundle, remote_gh_user, remote_gh_organization, gh_secrets_path):
 
-        # Load the token for accessing the remote in GitHub, if we indeed are using GitHub and have a secrets path
-        if not self.gh_secrets_path is None:
-            secrets_dict                                = YAML_Utils().load(self.gh_secrets_path)
-            self.github_token                           = secrets_dict['secrets']['github_token']  
-        else:
-            self.github_token                           = None          
+        super().__init__(local_root, remote_root, repo_bundle, remote_gh_user, remote_gh_organization, gh_secrets_path)          
 
     def create_project(self, project_name, work_branch_name, scaffold_spec=None, git_usage=GitUsage.git_local_and_remote):
         '''
@@ -128,3 +122,42 @@ class ProjectCreation():
 
         return files_l
     
+    def _git_ignore_content(self):
+        '''
+        :return: Contents with which to initialize a new ``.gitignore`` file for a new Git repo.
+        :rtype: list[str]
+        '''
+        lines                                           = []
+        lines.append("# Python build")
+        lines.append("#")
+        lines.append("__pycache__/")
+        lines.append("*.egg-info/")
+        lines.append("")
+        lines.append("")
+        lines.append("# Used in documentation")
+        lines.append("#")
+        lines.append("build/")
+        lines.append("*.~docx")
+        lines.append("*.~xlsx")
+        lines.append("*.~vsdx")
+        lines.append("*.~pptx")
+        lines.append("")
+        lines.append("")
+        lines.append("# Used in operator tools")
+        lines.append("*.ipynb_checkpoints/")
+        lines.append("")
+        lines.append("# Used in test scenarios")
+        lines.append("#")
+        lines.append("ACTUALS@*/")
+        lines.append("RUN_NOTES/")
+        lines.append("")
+        lines.append("# Used to hold GitHub credentials, and possibly other")
+        lines.append("#")
+        lines.append("secrets.yaml")
+        lines.append("")
+        lines.append("")
+        lines.append("")
+
+
+
+        return lines

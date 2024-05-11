@@ -32,6 +32,7 @@ class RepoAdministration():
         GitHub, it may be set to None
 
     :param str remote_gh_organization: the owner of the remote GitHub repo. Might be an organization or a user.
+        If the remote is not in GitHub, it may be set to None.
 
     :param str gh_secrets_path: path in the local file system for a file that contains a GitHub token to access the remote.
         The token must correspond to the user given by the `remote_gh_user` parameter. If the remote is not in GitHub
@@ -108,7 +109,7 @@ class RepoAdministration():
         inspector                                   = RepoInspectorFactory.findInspector(self.local_root, repo_name)
         return inspector.current_branch()
 
-    def _create_repo_report(self, publications_folder, 
+    def create_repo_report(self, publications_folder, 
                            repos_in_scope_l             = None, 
                            git_usage                    = GitUsage.git_local_and_remote,
                            mask_nondeterministic_data   = False):
@@ -160,7 +161,7 @@ class RepoAdministration():
         writer.populate_excel_worksheet(stats_df, workbook, worksheet, widths_dict=widths_dict)
         
         # Now generate and save the multiple log worksheets
-        all_repos_logs_dict                                     = self.repo_logs(git_usage, repos_in_scope_l)
+        all_repos_logs_dict                                     = self._repo_logs(git_usage, repos_in_scope_l)
         for repo_name in all_repos_logs_dict.keys():
             a_repo_logs_dict                                    = all_repos_logs_dict[repo_name]
             for instance_type in a_repo_logs_dict.keys(): # instance_type refers to local vs remote repos
@@ -170,7 +171,7 @@ class RepoAdministration():
                     log_df[RepoStatics.COMMIT_HASH_COL]         = MASKED_MSG
                     log_df[RepoStatics.COMMIT_AUTHOR_COL]       = MASKED_MSG
 
-                sheet_name                                      = RepoAdministration._worksheet_for_log(repo_name, 
+                sheet_name                                      = RepoAdministration.worksheet_for_log(repo_name, 
                                                                                                        instance_type)
                 worksheet                                       = workbook.add_worksheet(sheet_name)
                 widths_dict                                     = {RepoStatics.COMMIT_DATE_COL:             30,
@@ -183,12 +184,12 @@ class RepoAdministration():
                                                         
         workbook.close()
 
-    def _worksheet_for_log(repo_name, instance_type):
+    def worksheet_for_log(repo_name, instance_type):
         '''
         :param str instance_type:  Either ``RepoStatics.LOCAL_REPO`` or ``RepoStatics.REMOTE_REPO``
         :param str repo_name: Name of the repo whose logs are to be persisted in the worksheet whose name is computed
             by this method.
-        :return: The worksheets used by the ``self._create_repo_report`` method to save log information for the repo
+        :return: The worksheets used by the ``self.create_repo_report`` method to save log information for the repo
             identified by ``repo_name`` for the given ``instance_type``
         :rtype: str
         '''
@@ -288,36 +289,6 @@ class RepoAdministration():
                 result_dict[repo_name][RepoStatics.REMOTE_REPO] = remote_log_df
  
         return result_dict
-
-    def _git_ignore_content(self):
-        '''
-        :return: Contents with which to initialize a new ``.gitignore`` file for a new Git repo.
-        :rtype: list[str]
-        '''
-        lines                                           = []
-        lines.append("# Python build")
-        lines.append("__pycache__/")
-        lines.append("*.egg-info/")
-        lines.append("")
-        lines.append("")
-        lines.append("# Used in documentation")
-        lines.append("build/")
-        lines.append("*.~docx")
-        lines.append("*.~xlsx")
-        lines.append("*.~vsdx")
-        lines.append("*.~pptx")
-        lines.append("")
-        lines.append("")
-        lines.append("# Used in operator tools")
-        lines.append("*.ipynb_checkpoints/")
-        lines.append("")
-        lines.append("# Used in test scenarios")
-        lines.append("ACTUALS@*/")
-        lines.append("RUN_NOTES/")
-        lines.append("")
-        lines.append("")
-
-        return lines
 
     def _one_repo_stats(self, repo: RepoInspector):
         '''

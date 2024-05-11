@@ -217,8 +217,8 @@ class BranchLifecycleManager(RepoAdministration):
         
             CLEAN_TREE_MSG                              = "nothing to commit, working tree clean"
             if not CLEAN_TREE_MSG in status:
-                raise ValueError(f"Can't merge '{feature_branch}' -> '{integration}' because there is unchecked work in '"
-                                  + f"'{original_branch}'")
+                raise ValueError(f"Can't merge '{feature_branch}' -> '{integration}' because there is unchecked work in "
+                                  + f"'{original_branch}':\n\t{status}")
             
             # Before merging the feature branch, update the local integration branch with other people's changes
             # by pulling integration from the remote

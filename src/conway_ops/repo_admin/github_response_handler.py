@@ -20,6 +20,15 @@ class GitHub_ReponseHandler(HTTP_ResponseHandler):
         url                                                 = response.url
         data                                                = response.json()
         match status:
+            case 404:
+                match data:
+                    case {'message': 'Not Found', 
+                          'documentation_url': doc_url}:
+                        Application.app().log(f"Resource not found for url '{url}'")
+                        return None
+                    case _:
+                        raise ValueError(f"{response.status_code} from HTTP request to '{url}'."
+                            + f"\n\nFor the record, this was the HTTP response: \n{data}")  
             case 422:
                 match data:
                     case {'message': 'Validation Failed',           \
@@ -35,7 +44,7 @@ class GitHub_ReponseHandler(HTTP_ResponseHandler):
                     case _:
                             
                         raise ValueError(f"Error status {response.status_code} from HTTP request to '{url}'."
-                            + f"\n\nFor the third, this was the HTTP response: \n{data}")  
+                            + f"\n\nFor the record, this was the HTTP response: \n{data}")  
             case _:         
                 return super().process(response)
             

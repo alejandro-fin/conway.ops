@@ -46,7 +46,7 @@ class GitHub_RepoInspector(RepoInspector):
         #self.github_api_url                             = f"https://{self.owner}@api.github.com"
         self.github_api_url                             = f"https://api.github.com"
     
-    def GET(self, resource_path):
+    def GET(self, resource_path, resource="repos"):
         '''
         Invokes the "GET" HTTP verb on the Git Hub API to get a resource associated to this inspector's repo.
 
@@ -55,9 +55,9 @@ class GitHub_RepoInspector(RepoInspector):
         :return: A Json representation of the resource as given by the GitHub API
         :rtype: str
         '''
-        return self._http_call("GET", resource_path)
+        return self._http_call("GET", resource_path=resource_path, body={}, resource=resource)
     
-    def POST(self, resource_path, body):
+    def POST(self, resource_path, body, resource="repos"):
         '''
         Invokes the "POST" HTTP verb on the Git Hub API to create a resource associated to this inspector's repo.
 
@@ -67,9 +67,9 @@ class GitHub_RepoInspector(RepoInspector):
         :return: A Json representation of the resource as given by the GitHub API
         :rtype: str
         '''
-        return self._http_call("POST", resource_path, body)
+        return self._http_call("POST", resource_path=resource_path, body=body, resource=resource)
     
-    def PUT(self, resource_path, body):
+    def PUT(self, resource_path, body, resource="repos"):
         '''
         Invokes the "PUT" HTTP verb on the Git Hub API to update a resource associated to this inspector's repo.
 
@@ -79,10 +79,10 @@ class GitHub_RepoInspector(RepoInspector):
         :return: A Json representation of the resource as given by the GitHub API
         :rtype: str
         '''
-        return self._http_call("PUT", resource_path, body)
+        return self._http_call("PUT", resource_path=resource_path, body=body, resource=resource)
            
     
-    def _http_call(self, method, resource_path, body={}):
+    def _http_call(self, method, resource_path, body={}, resource="repos"):
         '''
         Invokes the Git Hub API to get information about the repo associated to this inspector.
 
@@ -93,7 +93,16 @@ class GitHub_RepoInspector(RepoInspector):
         :return: A Json representation of the resource as given by the GitHub API
         :rtype: str
         '''
-        root_path                           = f"{self.github_api_url}/repos/{self.owner}/{self.repo_name}"
+        match resource:
+            case "repos":
+                root_path                   = f"{self.github_api_url}/repos/{self.owner}/{self.repo_name}"
+            case "orgs":
+                root_path                   = f"{self.github_api_url}/orgs/{self.owner}"
+            case "": # Return meta information
+                root_path                   = f"{self.github_api_url}"
+            case _:
+                raise ValueError(f"Unsupported GitHub resource '{resource}'")
+            
         url                                 = root_path + resource_path
 
         headers = {
