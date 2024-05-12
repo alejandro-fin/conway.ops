@@ -3,10 +3,9 @@ from git                                                            import Repo
 
 from conway.observability.logger                                    import Logger
 from conway.util.profiler                                           import Profiler
-from conway.util.toml_utils                                         import TOML_Utils
 
-from conway_ops.util.git_branches                                   import GitBranches
-from conway_ops.util.git_client                                     import GitClient
+from conway_ops.onboarding.user_profile                             import UserProfile
+from conway_ops.util.git_local_client                                     import GitLocalClient
 
 
 class RepoSetup():
@@ -34,7 +33,7 @@ class RepoSetup():
         self.sdlc_root                                  = sdlc_root
         self.profile_name                               = profile_name
         self.profile_path                               = f"{sdlc_root}/sdlc.profiles/{profile_name}/profile.toml" 
-        self.profile                                    = TOML_Utils().load(self.profile_path)
+        self.profile                                    = UserProfile(self.profile_path)
 
     def setup(self, project, filter=None, operate=False, root_folder=None):
         '''
@@ -55,28 +54,14 @@ class RepoSetup():
                             local machine under which the to create a project folder called `project`, beneath which
                             repos for `project` will get cloned. If it is None, the project folder will be 
                             as specified by the suer profile `self.profile_name` 
-
         '''
         P                                               = self.profile
-        GB                                              = GitBranches
 
-        GH_ORGANIZATION                                 = P["git"]["github_organization"]
-  
-        REPO_LIST                                       = P["projects"][project]["repos"]
+        BRANCHES_TO_CREATE                              = P.BRANCHES_TO_CREATE(operate)
+        REPO_LIST                                       = P.REPO_LIST(project)
+        LOCAL_ROOT                                      = P.LOCAL_ROOT(operate, root_folder)
+        REMOTE_ROOT                                     = P.REMOTE_ROOT
         
-        if operate:
-            LOCAL_ROOT                                  = P["operate"]["operate_root"] if root_folder is None else root_folder
-            WORKING_BRANCH                              = GB.OPERATE_BRANCH.value
-            BRANCHES_TO_CREATE                          = [GB.OPERATE_BRANCH.value]
-        else:
-            LOCAL_ROOT                                  = P["local_development"]["dev_root"] if root_folder is None else root_folder
-            WORKING_BRANCH                              = P["git"]["working_branch"]
-            BRANCHES_TO_CREATE                          = [GB.INTEGRATION_BRANCH.value, WORKING_BRANCH]
-
-        USER                                            = P["git"]["user"]["name"]
-
-        REMOTE_ROOT                                     = f"https://{USER}@github.com/{GH_ORGANIZATION}"
-
         # Per CCL policy, we don't want to clone the master branch, since it should never exist locally.
         # Therefore have to clone a different branch and only bring in that branch during the cloning.
         branch_to_clone                                 = BRANCHES_TO_CREATE[0]
@@ -91,17 +76,40 @@ class RepoSetup():
             with Profiler(f"Setting up repo '{some_repo_name}'"):
 
                 Logger.log_info(f"\t... cloning repo '{some_repo_name}' ...")
-
-                cloned_repo                                 = Repo.clone_from(f"{REMOTE_ROOT}/{some_repo_name}.git", 
-                                                                        f"{LOCAL_ROOT}/{project}/{some_repo_name}",
-                                                                        **kwargs)
+                remote_url                                  = f"{REMOTE_ROOT}/{some_repo_name}.git"
+                local_url                                   = f"{LOCAL_ROOT}/{project}/{some_repo_name}"
+                try:
+                    cloned_repo                             = Repo.clone_from(remote_url, local_url, **kwargs)
+                except Exception as ex:
+                    raise ValueError(f"Couldn't clone '{some_repo_name}'"
+                                     + f"\n\tremote = {remote_url}"
+                                     + f"\n\rlocal = {local_url}"
+                                     + f"\n\terror = {ex}"
+                                     )
+                
+                # Now that we cloned the repo, we may need to configure the remote to include the access token.
+                # This can happen during testing, for example, where the access token is for a test robot and therefore
+                # GitHub access tokens are not included in this machine's windows credentials
+                #
+                # We will determine if there is a need to do this based on the profile we are running under. 
+                # Obviously this is a security risk, since the access token will be added in clear text to the Git
+                # repo configuration. 
+                # So the profile should only allow this when it is a profile for resources that don't need to be protected,
+                # such as a test robot acting on discardable GitHub repos that only exist for testing purposes.
+                # 
+                #if P.OK_TO_DISPLAY_TOKEN():
+                assert(f"P.OK_TO_DISPLAY_TOKEN = {P.OK_TO_DISPLAY_TOKEN()}")
+                '''
+                git config --local remote.origin.url 
+                https://testrobot-ccl:{TOKEN}@github.com/testrobot-ccl/scenario_8002.svc.git
+                '''
 
                 Logger.log_info(f"\t... creating branches {BRANCHES_TO_CREATE[1:]} for repo '{some_repo_name}' ...")
 
                 for branch in BRANCHES_TO_CREATE[1:]:
                 
 
-                    executor                                = GitClient(cloned_repo.working_dir)
+                    executor                                = GitLocalClient(cloned_repo.working_dir)
                     # Only create branch with '-b' option if it already exists.
                     if executor.execute(command             = f"git branch --list {branch}") == "":
                         executor.execute(command            = f"git checkout -b {branch}")
@@ -126,15 +134,13 @@ class RepoSetup():
         '''
         P                                               = self.profile
 
-        USER                                            = P["git"]["user"]["name"]
-        USER_EMAIL                                      = P["git"]["user"]["email"]
-
-        BC_PATH                                         = P["git"]["bc_path"]
-
-        WIN_CRED_PATH                                   = P["git"]["win_cred_path"]
+        USER                                            = P.USER
+        USER_EMAIL                                      = P.USER_EMAIL
+        BC_PATH                                         = P.BC_PATH
+        WIN_CRED_PATH                                   = P.WIN_CRED_PATH
 
 
-        executor                                        = GitClient(repo_path)
+        executor                                        = GitLocalClient(repo_path)
         # At present, credentials manager configuration is global and done in ~/.bashrc, so comment it for now
         #
         #executor.execute(command                        = f'git config --local credential.helper "{WIN_CRED_PATH}"')
