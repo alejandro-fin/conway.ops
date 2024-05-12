@@ -18,7 +18,12 @@ class GitHub_ReponseHandler(HTTP_ResponseHandler):
         '''
         status                                              = response.status_code
         url                                                 = response.url
-        data                                                = response.json()
+        data                                                = self._as_json(response)
+
+        # response.request is of type PreparedRequest 
+        #   - see https://requests.readthedocs.io/en/latest/api/#requests.PreparedRequest
+        #
+        req                                                 = response.request
         match status:
             case 422:
                 match data:
@@ -33,9 +38,9 @@ class GitHub_ReponseHandler(HTTP_ResponseHandler):
                         return None
 
                     case _:
-                            
-                        raise ValueError(f"Error status {response.status_code} from HTTP request to '{url}'."
-                            + f"\n\nFor the third, this was the HTTP response: \n{data}")  
+                        self._fail(response)
             case _:         
                 return super().process(response)
+            
+
             

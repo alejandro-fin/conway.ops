@@ -5,7 +5,7 @@ from conway.observability.logger                                    import Logge
 from conway.util.date_utils                                         import DateUtils
 
 from conway_ops.repo_admin.repo_inspector                           import RepoInspector, CommitInfo, CommittedFileInfo
-from conway_ops.util.git_client                                     import GitClient
+from conway_ops.util.git_local_client                                     import GitLocalClient
 
 
 class FileSystem_RepoInspector(RepoInspector):
@@ -23,7 +23,7 @@ class FileSystem_RepoInspector(RepoInspector):
 
         super().__init__(parent_url, repo_name)
 
-        self.executor                       = GitClient(parent_url + "/" + repo_name)
+        self.executor                       = GitLocalClient(parent_url + "/" + repo_name)
 
     def init_repo(self):
         '''
@@ -332,7 +332,7 @@ class FileSystem_RepoInspector(RepoInspector):
         '''    
         # Remember the original branch that is checked out in the remote, so that later we can go back to it
         original_branch     = self.current_branch()
-        executor            = GitClient(self.parent_url + "/" + self.repo_name) 
+        executor            = GitLocalClient(self.parent_url + "/" + self.repo_name) 
 
         if to_branch != original_branch:
             status1         = executor.execute(command = 'git checkout ' + to_branch)
@@ -358,7 +358,7 @@ class FileSystem_RepoInspector(RepoInspector):
         # Remember the original branch that is checked out in the remote, so that later we can go back to it
         original_branch     = self.current_branch()
 
-        executor            = GitClient(self.parent_url + "/" + self.repo_name) 
+        executor            = GitLocalClient(self.parent_url + "/" + self.repo_name) 
 
         if branch != original_branch:
             status1         = executor.execute(command = 'git checkout ' + branch)

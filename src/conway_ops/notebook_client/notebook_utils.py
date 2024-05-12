@@ -80,7 +80,7 @@ class NotebookUtils(abc.ABC):
         from conway_ops.scaffolding.scaffold_generator                          import ScaffoldGenerator
         from conway_ops.scaffolding.scaffold_spec                               import ScaffoldSpec
         from conway_ops.util.git_branches                                       import GitBranches
-        from conway_ops.util.git_client                                         import GitClient
+        from conway_ops.util.git_local_client                                         import GitLocalClient
         
         from conway.application.application                                     import Application
         from conway.util.dataframe_utils                                        import DataFrameUtils
@@ -99,7 +99,7 @@ class NotebookUtils(abc.ABC):
         self.ScaffoldGenerator                  = ScaffoldGenerator
         self.ScaffoldSpec                       = ScaffoldSpec
         self.GitBranches                        = GitBranches
-        self.GitClient                          = GitClient
+        self.GitLocalClient                          = GitLocalClient
 
         self.Application                        = Application
         self.DataFrameUtils                     = DataFrameUtils

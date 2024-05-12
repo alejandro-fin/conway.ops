@@ -3,13 +3,13 @@ from pathlib                                                        import Path
 
 from conway.util.command_parser                                     import CommandParser
 
-class GitClient():
+class GitLocalClient():
 
     '''
     Helper class used to invoke GIT commands as strings. It essentially is a wrapper around GitPython to avoid having
     awareness of GitPython across Conway modules.
 
-    :param str repo_path: Location in the file system for the Git repository to be acted on by this :class:`GitClient` instance.
+    :param str repo_path: Location in the file system for the Git repository to be acted on by this :class:`GitLocalClient` instance.
 
     '''
     def __init__(self, repo_path):
