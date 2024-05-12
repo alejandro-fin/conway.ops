@@ -12,7 +12,7 @@ from conway_ops.onboarding.git_usage                                import GitUs
 from conway_ops.repo_admin.repo_statics                             import RepoStatics
 from conway_ops.repo_admin.repo_inspector_factory                   import RepoInspectorFactory
 from conway_ops.repo_admin.repo_inspector                           import RepoInspector
-from conway_ops.util.git_client                                     import GitClient
+from conway_ops.util.git_local_client                                     import GitLocalClient
 
 
 
@@ -59,7 +59,7 @@ class RepoAdministration():
         :return: branches in local repo
         :rtype: list[str]
         '''
-        executor                = GitClient(self.local_root + "/" + repo_name)
+        executor                = GitLocalClient(self.local_root + "/" + repo_name)
 
         git_result              = executor.execute("git branch")
 
@@ -78,7 +78,7 @@ class RepoAdministration():
             ``destination_branch``. Returns False otherwise.
         :rtype: bool
         '''
-        executor                = GitClient(self.local_root + "/" + repo_name)
+        executor                = GitLocalClient(self.local_root + "/" + repo_name)
 
         git_result              = executor.execute("git branch --merged " + str(destination_branch))
 

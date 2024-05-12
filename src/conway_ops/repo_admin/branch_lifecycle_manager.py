@@ -5,7 +5,7 @@ from conway.application.application                                 import Appli
 from conway_ops.repo_admin.repo_administration                      import RepoAdministration
 from conway_ops.repo_admin.repo_inspector_factory                   import RepoInspectorFactory
 from conway_ops.util.git_branches                                   import GitBranches
-from conway_ops.util.git_client                                     import GitClient
+from conway_ops.util.git_local_client                                     import GitLocalClient
 
 class BranchLifecycleManager(RepoAdministration):
 
@@ -203,7 +203,7 @@ class BranchLifecycleManager(RepoAdministration):
             working_dir                                 = self.local_root + "/" + repo_name
             _os.chdir(working_dir)
             self.log_info(f"local = '{working_dir}'")
-            executor                                    = GitClient(working_dir)
+            executor                                    = GitLocalClient(working_dir)
 
             if feature_branch == integration:
                 raise ValueError(f"A self-referencing merge '{feature_branch}' -> '{integration}' is not allowed. Are "
@@ -311,7 +311,7 @@ class BranchLifecycleManager(RepoAdministration):
             working_dir                                 = self.local_root + "/" + repo_name
             _os.chdir(working_dir)
             self.log_info("local = '" + working_dir + "'")
-            executor                                    = GitClient(working_dir)
+            executor                                    = GitLocalClient(working_dir)
 
             # First check if there is anything to commit. We check because if there is nothing to commit
             # and we try to commit, we will get error messages
@@ -377,7 +377,7 @@ class BranchLifecycleManager(RepoAdministration):
 
             repo_path                                   = self.local_root + "/" + repo_name
 
-            executor                                    = GitClient(repo_path)
+            executor                                    = GitLocalClient(repo_path)
             existing_branches                           = self.branches(repo_name)
 
             self.log_info(f"\n----------- {repo_name} (local) -----------")
@@ -419,7 +419,7 @@ class BranchLifecycleManager(RepoAdministration):
         
         # If we get this far, then all work has been merged, so we can safely remove the branch
         for repo_name in self.repo_names():
-            executor                                    = GitClient(self.local_root + "/" + repo_name)
+            executor                                    = GitLocalClient(self.local_root + "/" + repo_name)
 
             self.log_info(f"\n----------- {repo_name} (local) -----------")
 

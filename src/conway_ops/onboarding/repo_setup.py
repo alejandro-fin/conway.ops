@@ -5,7 +5,7 @@ from conway.observability.logger                                    import Logge
 from conway.util.profiler                                           import Profiler
 
 from conway_ops.onboarding.user_profile                             import UserProfile
-from conway_ops.util.git_client                                     import GitClient
+from conway_ops.util.git_local_client                                     import GitLocalClient
 
 
 class RepoSetup():
@@ -109,7 +109,7 @@ class RepoSetup():
                 for branch in BRANCHES_TO_CREATE[1:]:
                 
 
-                    executor                                = GitClient(cloned_repo.working_dir)
+                    executor                                = GitLocalClient(cloned_repo.working_dir)
                     # Only create branch with '-b' option if it already exists.
                     if executor.execute(command             = f"git branch --list {branch}") == "":
                         executor.execute(command            = f"git checkout -b {branch}")
@@ -140,7 +140,7 @@ class RepoSetup():
         WIN_CRED_PATH                                   = P.WIN_CRED_PATH
 
 
-        executor                                        = GitClient(repo_path)
+        executor                                        = GitLocalClient(repo_path)
         # At present, credentials manager configuration is global and done in ~/.bashrc, so comment it for now
         #
         #executor.execute(command                        = f'git config --local credential.helper "{WIN_CRED_PATH}"')
