@@ -1,4 +1,6 @@
 import os                                               as _os
+import sys                                              as _sys
+import importlib                                        as _importlib
 
 from conway.util.toml_utils                             import TOML_Utils
 
@@ -61,6 +63,19 @@ class UserProfile():
             return False
         
         return P["git"]["ok_to_display_token"]
+    
+    def REMOTE_IS_LOCAL(self):
+        '''
+        Determines if remote repos are on the local file system or in GitHub.
+
+        :returns: True if remotes are local, and False otherwise
+
+        '''
+        P                                               = self.profile_dict
+        if "remote_is_local" not in P["git"].keys():
+            return False
+        
+        return P["git"]["remote_is_local"]
 
     def OPS_REPO(self, project):
         '''
@@ -75,6 +90,31 @@ class UserProfile():
         P                                               = self.profile_dict
         _REPO_BUNDLE_CLASS_NAME                         = P["projects"][project]["repo_bundle_class"]
         return _REPO_BUNDLE_CLASS_NAME
+    
+    def instantiate_repo_bundle(self, project, operate):
+        '''
+        Returns an instance of the class whose name is self.REPO_BUNDLE_CLASS_NAME
+        '''
+        OPS_REPO                        = self.OPS_REPO(project)
+        REPO_BUNDLE_CLASS_NAME          = self.REPO_BUNDLE_CLASS_NAME(project)
+
+        # Add the ops repo's src folder to the path so that the Python class loader can later find this project's
+        # repo bundle class and load it. As there might be multiple installations of the ops repos in this
+        # machine's file system, put the ops repo we want to be used in front of the path
+        #
+        local_root                      = self.LOCAL_ROOT(operate=operate, root_folder=None)
+        PATH_TO_OPS_MODULES             = f"{local_root}/{project}/{OPS_REPO}/src"
+        _sys.path                       = [PATH_TO_OPS_MODULES] + _sys.path
+
+        tokens                          = REPO_BUNDLE_CLASS_NAME.split(".")
+        module_name                     = ".".join(tokens[:-1])
+        class_name                      = tokens[-1]
+
+        module                          = _importlib.import_module(module_name)
+        class_                          = getattr(module, class_name)
+        repo_bundle                     = class_()
+
+        return repo_bundle, PATH_TO_OPS_MODULES
 
     def LOCAL_ROOT(self, operate, root_folder):
         '''
