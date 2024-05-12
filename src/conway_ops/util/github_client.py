@@ -1,7 +1,6 @@
 import requests                                             as _requests
 
-from conway.application.application                         import Application
-from conway.util.yaml_utils                                 import YAML_Utils
+from conway.util.secrets                                    import Secrets
 
 from conway_ops.util.github_response_handler          import GitHub_ReponseHandler
 
@@ -84,13 +83,7 @@ class GitHub_Client():
         :rtype: str
         '''
         GIT_HUB_API                         = f"https://api.github.com"
-        APP                                 = Application.app()
-        # Get GitHub token to make authenticated calls.
-        #
-        SECRETS_PATH                                    = APP.config.secrets_path()
-        secrets_dict                                    = YAML_Utils().load(SECRETS_PATH)
-        GIT_HUB_TOKEN                                   = secrets_dict['secrets']['github_token']
-
+ 
         match resource:
             case "repos" | "orgs" | "users":
                 url                   = f"{GIT_HUB_API}/{resource}/{self.github_owner}{sub_path}"
@@ -109,7 +102,7 @@ class GitHub_Client():
         #APP.log(f"... calling '{method} {url}'")
         
         headers = {
-            'Authorization': 'Bearer ' + GIT_HUB_TOKEN,
+            'Authorization': 'Bearer ' + Secrets.GIT_HUB_TOKEN(),
             'Content-Type' : 'application/json',
             # GOTCHA:
             #       Painfully found that GitHub post APIs will only work with the "vnd.github*" MIME types

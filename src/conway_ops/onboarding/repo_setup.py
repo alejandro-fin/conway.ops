@@ -1,11 +1,11 @@
-import os                                                           as _os
 from git                                                            import Repo
 
 from conway.observability.logger                                    import Logger
 from conway.util.profiler                                           import Profiler
+from conway.util.secrets                                            import Secrets
 
 from conway_ops.onboarding.user_profile                             import UserProfile
-from conway_ops.util.git_local_client                                     import GitLocalClient
+from conway_ops.util.git_local_client                               import GitLocalClient
 
 
 class RepoSetup():
@@ -87,6 +87,8 @@ class RepoSetup():
                                      + f"\n\terror = {ex}"
                                      )
                 
+                local_git                                   = GitLocalClient(cloned_repo.working_dir)
+
                 # Now that we cloned the repo, we may need to configure the remote to include the access token.
                 # This can happen during testing, for example, where the access token is for a test robot and therefore
                 # GitHub access tokens are not included in this machine's windows credentials
@@ -97,30 +99,26 @@ class RepoSetup():
                 # So the profile should only allow this when it is a profile for resources that don't need to be protected,
                 # such as a test robot acting on discardable GitHub repos that only exist for testing purposes.
                 # 
-                #if P.OK_TO_DISPLAY_TOKEN():
-                assert(f"P.OK_TO_DISPLAY_TOKEN = {P.OK_TO_DISPLAY_TOKEN()}")
-                '''
-                git config --local remote.origin.url 
-                https://testrobot-ccl:{TOKEN}@github.com/testrobot-ccl/scenario_8002.svc.git
-                '''
+                if P.OK_TO_DISPLAY_TOKEN():
+                    DOMAIN                              = f"https://{P.USER}:{Secrets.GIT_HUB_TOKEN()}@github.com"
+                    PATH                                = f"{P.GH_ORGANIZATION}/{some_repo_name}.git"
+                    local_git.execute(command           = f"git config --local remote.origin.url {DOMAIN}/{PATH}")
 
                 Logger.log_info(f"\t... creating branches {BRANCHES_TO_CREATE[1:]} for repo '{some_repo_name}' ...")
 
                 for branch in BRANCHES_TO_CREATE[1:]:
                 
-
-                    executor                                = GitLocalClient(cloned_repo.working_dir)
                     # Only create branch with '-b' option if it already exists.
-                    if executor.execute(command             = f"git branch --list {branch}") == "":
-                        executor.execute(command            = f"git checkout -b {branch}")
+                    if local_git.execute(command             = f"git branch --list {branch}") == "":
+                        local_git.execute(command            = f"git checkout -b {branch}")
                     else:
-                        executor.execute(command            = f"git checkout {branch}")
+                        local_git.execute(command            = f"git checkout {branch}")
 
                     # Check if branch exists in remote. If not, push local branch. If yes, set it as the upstream.
-                    if executor.execute(command             = f"git ls-remote --heads origin {branch}") == "":
-                        executor.execute(command            = f"git push origin -u {branch}")
+                    if local_git.execute(command             = f"git ls-remote --heads origin {branch}") == "":
+                        local_git.execute(command            = f"git push origin -u {branch}")
                     else:
-                        executor.execute(command            = f"git branch --set-upstream-to=origin/{branch} {branch}")
+                        local_git.execute(command            = f"git branch --set-upstream-to=origin/{branch} {branch}")
 
                 Logger.log_info(f"\t... configuring repo '{some_repo_name}' ...")
                 self.configure(cloned_repo.working_dir)
@@ -140,21 +138,21 @@ class RepoSetup():
         WIN_CRED_PATH                                   = P.WIN_CRED_PATH
 
 
-        executor                                        = GitLocalClient(repo_path)
+        local_git                                       = GitLocalClient(repo_path)
         # At present, credentials manager configuration is global and done in ~/.bashrc, so comment it for now
         #
-        #executor.execute(command                        = f'git config --local credential.helper "{WIN_CRED_PATH}"')
-        #executor.execute(command                        = f'git config --local credential.https://dev.azure.com.usehttppath true')
+        #local_git.execute(command                       = f'git config --local credential.helper "{WIN_CRED_PATH}"')
+        #local_git.execute(command                       = f'git config --local credential.https://dev.azure.com.usehttppath true')
         
-        executor.execute(command                        = f'git config --local user.name "{USER}"')
-        executor.execute(command                        = f'git config --local user.email "{USER_EMAIL}"')
+        local_git.execute(command                       = f'git config --local user.name "{USER}"')
+        local_git.execute(command                       = f'git config --local user.email "{USER_EMAIL}"')
     
-        executor.execute(command                        = f'git config --local diff.tool bc')
+        local_git.execute(command                       = f'git config --local diff.tool bc')
         
-        executor.execute(command                        = f'git config --local difftool.prompt false')
+        local_git.execute(command                       = f'git config --local difftool.prompt false')
     
-        executor.execute(command                        = f'git config --local difftool.bc.path "{BC_PATH}"')
-        executor.execute(command                        = f'git config --local difftool.bc.trustExitCode true')
+        local_git.execute(command                       = f'git config --local difftool.bc.path "{BC_PATH}"')
+        local_git.execute(command                       = f'git config --local difftool.bc.trustExitCode true')
 
         # GOTCHA
         # Configuring BeyondCompare to work in WSL can be tricky. These settings are based on this post:
@@ -178,19 +176,19 @@ class RepoSetup():
         # To achieve that (a string with 2 levels of quotes inside it) we need to use 3 levels of quotes (since the outer 
         # level is needed to define the string).
         #
-        # That is why we use this patther for the argument to executor.execute, where we escape the inner 
+        # That is why we use this patther for the argument to local_git.execute, where we escape the inner 
         # single quote (\') to distinguish it from the outer single quote (')
         #
         #   f'git config --local difftool.bc.cmd \'"{BC_PATH}" "$(wslpath -aw $LOCAL)" "$(wslpath -aw $REMOTE)"\''
         #
-        executor.execute(command                        = f'git config --local difftool.bc.cmd \'"{BC_PATH}"' 
+        local_git.execute(command                       = f'git config --local difftool.bc.cmd \'"{BC_PATH}"' 
                                                             + f' "$(wslpath -aw $LOCAL)" "$(wslpath -aw $REMOTE)"\'')
     
     
-        executor.execute(command                        = f'git config --local merge.tool bc')
+        local_git.execute(command                       = f'git config --local merge.tool bc')
     
-        executor.execute(command                        = f'git config --local mergetool.bc.path "{BC_PATH}"')
-        executor.execute(command                        = f'git config --local mergetool.bc.trustExitCode true')
+        local_git.execute(command                       = f'git config --local mergetool.bc.path "{BC_PATH}"')
+        local_git.execute(command                       = f'git config --local mergetool.bc.trustExitCode true')
     
         # For mergetool.bc.cmd we have the same challenges with triple quotes as described above for the difftool.bc.cmd. 
         # In this case, this # is the argument list we need:
@@ -206,6 +204,6 @@ class RepoSetup():
         #
         #   f'git config --local mergetool.bc.cmd \'"{BC_PATH}" "$(wslpath -aw $LOCAL)" "$(wslpath -aw $REMOTE)" "$(wslpath -aw $BASE)" "$(wslpath -aw $MERGED)"\''
         #
-        executor.execute(command                        = f'git config --local mergetool.bc.cmd \'"{BC_PATH}"'
+        local_git.execute(command                       = f'git config --local mergetool.bc.cmd \'"{BC_PATH}"'
                                                             + f' "$(wslpath -aw $LOCAL)" "$(wslpath -aw $REMOTE)"'
                                                             + f' "$(wslpath -aw $BASE)"  "$(wslpath -aw $MERGED)"\'')
