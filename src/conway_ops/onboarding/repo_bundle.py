@@ -12,13 +12,19 @@ class RepoBundle():
     * A repo for the documentation
     * A repo for the tooling required to operate the application
 
+    This default list can be altered by the `repo_suffixes` parameter, causing fewer or additional repo names to
+    be part of this RepoBundle.
+
     :param str project_name: Name of the application for which this instance of RepoBundle represents the
         names of all Git repos required by that application
-
+    :param list[str] repo_suffixes: optional parameter. If not None, then this RepoBundle object will have
+        one repo name for each element in `repo_suffixes`. For example, if `repo_sufixes = ["ops", "profiles"]
+        and `project_name = "sldc"`, then this RepoBundle defines a project structure consisting of repos
+        `["sdlc.ops", "sdcl.profiles"]`.
     '''
-    def __init__(self, project_name):
+    def __init__(self, project_name, repo_suffixes=None):
         self.project_name                   = project_name
-
+        self.repo_suffixes                  = repo_suffixes
 
 
     def bundled_repos(self):
@@ -30,17 +36,20 @@ class RepoBundle():
 
         APPLICATION                         = self.project_name
 
-        bundled_repos                       = [RepoInfo(APPLICATION, "svc",
-                                                        "Source code for business logic and services layers"),
-                                                RepoInfo(APPLICATION,"docs",
-                                                        "Source code for documentation website"),
-                                                RepoInfo(APPLICATION, "test",
-                                                        "Source code for test cases"),
-                                                RepoInfo(APPLICATION, "scenarios",
-                                                        "Collection of self-contained databases (scenarios) used by test cases"),
-                                                RepoInfo(APPLICATION, "ops",
-                                                        "Source code for tools to operate")
-                                                ]
+        SUFFIXES                            = ["svc", "docs", "test", "scenarios", "ops"] if self.repo_suffixes is None \
+                                                                                            else self.repo_suffixes  
+
+        DESCRIPTIONS                        = {"svc":       "Source code for business logic and services layers",
+                                               "docs":      "Source code for documentation website",
+                                               "test":      "Source code for test cases",
+                                               "scenarios": "Collection of self-contained databases (scenarios) used by test cases",
+                                               "ops":       "Source code for tools to operate"}  
+
+        bundled_repos                       = [] 
+
+        for suffix in SUFFIXES:
+            description                     = "" if not suffix in DESCRIPTIONS.keys() else DESCRIPTIONS[suffix]
+            bundled_repos.append(RepoInfo(APPLICATION, suffix, description))
 
         return bundled_repos
     

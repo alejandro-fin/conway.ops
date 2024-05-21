@@ -2,7 +2,7 @@
 from conway_ops.onboarding.repo_bundle        import RepoBundle
 
 
-class RepoBundleSubset(RepoBundle):
+class DEPRECATED_RepoBundleSubset(RepoBundle):
 
     '''
     Helper class used to represent a bundle of repos that is a subset of another bundle.
