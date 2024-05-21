@@ -27,12 +27,15 @@ class RepoSetup():
 
     :param str sdlc_root: folder in the local file system under which CCL SDLC profiles and tools exist.
     :param str profile_name: name of the user profile for which repos should be setup.
+    :param str sdlc_project: optional parameter for the name of the project that manages the software
+        development lifecycle. It defaults to "sdlc", but for particular CCL authorized consultants
+        it may differ if they are working on-site.
     '''
-    def __init__(self, sdlc_root, profile_name):
+    def __init__(self, sdlc_root, profile_name, sdlc_project = "sdlc"):
 
         self.sdlc_root                                  = sdlc_root
         self.profile_name                               = profile_name
-        self.profile_path                               = f"{sdlc_root}/sdlc.profiles/{profile_name}/profile.toml" 
+        self.profile_path                               = f"{sdlc_root}/{sdlc_project}.profiles/{profile_name}/profile.toml" 
         self.profile                                    = UserProfile(self.profile_path)
 
     def setup(self, project, filter=None, operate=False, root_folder=None):

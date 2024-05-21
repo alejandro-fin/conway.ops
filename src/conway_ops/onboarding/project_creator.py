@@ -1,8 +1,6 @@
 from pathlib                                                        import Path
 import os                                                           as _os
 
-from conway.util.yaml_utils                                         import YAML_Utils
-
 from conway_ops.onboarding.git_usage                                import GitUsage
 from conway_ops.onboarding.project_creation_context                 import ProjectCreationContext
 from conway_ops.onboarding.repo_bundle                              import RepoBundle
