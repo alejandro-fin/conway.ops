@@ -75,7 +75,6 @@ class NotebookUtils(abc.ABC):
         from conway_ops.repo_admin.repo_administration                          import RepoAdministration
         from conway_ops.repo_admin.github_repo_inspector                        import GitHub_RepoInspector
         from conway_ops.onboarding.chassis_repo_bundle                          import Chassis_RepoBundle
-        from conway_ops.onboarding.repo_bundle_subset                           import RepoBundleSubset
         from conway_ops.onboarding.repo_setup                                   import RepoSetup
         from conway_ops.scaffolding.scaffold_generator                          import ScaffoldGenerator
         from conway_ops.scaffolding.scaffold_spec                               import ScaffoldSpec
@@ -94,7 +93,6 @@ class NotebookUtils(abc.ABC):
         self.GitHub_RepoInspector               = GitHub_RepoInspector
         self.RepoAdministration                 = RepoAdministration
         self.Chassis_RepoBundle                 = Chassis_RepoBundle
-        self.RepoBundleSubset                   = RepoBundleSubset
         self.RepoSetup                          = RepoSetup
         self.ScaffoldGenerator                  = ScaffoldGenerator
         self.ScaffoldSpec                       = ScaffoldSpec

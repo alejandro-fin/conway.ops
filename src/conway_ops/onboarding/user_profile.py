@@ -45,7 +45,7 @@ class UserProfile():
         self.REMOTE_ROOT                                = f"https://{self.USER}@github.com/{self.GH_ORGANIZATION}"
 
 
-    def REPO_LIST(self, project):
+    def REPO_LIST(self, project: str) -> list[str]:
         '''
         '''
         P                                               = self.profile_dict
@@ -84,37 +84,6 @@ class UserProfile():
         _OPS_REPO                                      = P["projects"][project]["ops_repo"]
         return _OPS_REPO
     
-    def REPO_BUNDLE_CLASS_NAME(self, project):
-        '''
-        '''
-        P                                               = self.profile_dict
-        _REPO_BUNDLE_CLASS_NAME                         = P["projects"][project]["repo_bundle_class"]
-        return _REPO_BUNDLE_CLASS_NAME
-    
-    def instantiate_repo_bundle(self, project, operate):
-        '''
-        Returns an instance of the class whose name is self.REPO_BUNDLE_CLASS_NAME
-        '''
-        OPS_REPO                        = self.OPS_REPO(project)
-        REPO_BUNDLE_CLASS_NAME          = self.REPO_BUNDLE_CLASS_NAME(project)
-
-        # Add the ops repo's src folder to the path so that the Python class loader can later find this project's
-        # repo bundle class and load it. As there might be multiple installations of the ops repos in this
-        # machine's file system, put the ops repo we want to be used in front of the path
-        #
-        local_root                      = self.LOCAL_ROOT(operate=operate, root_folder=None)
-        PATH_TO_OPS_MODULES             = f"{local_root}/{project}/{OPS_REPO}/src"
-        _sys.path                       = [PATH_TO_OPS_MODULES] + _sys.path
-
-        tokens                          = REPO_BUNDLE_CLASS_NAME.split(".")
-        module_name                     = ".".join(tokens[:-1])
-        class_name                      = tokens[-1]
-
-        module                          = _importlib.import_module(module_name)
-        class_                          = getattr(module, class_name)
-        repo_bundle                     = class_()
-
-        return repo_bundle, PATH_TO_OPS_MODULES
 
     def LOCAL_ROOT(self, operate, root_folder):
         '''
