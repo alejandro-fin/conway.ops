@@ -8,7 +8,7 @@ class RepoBundleFactory():
     def __init__(self):
         pass
 
-    def inferFromRepoList(repo_list):
+    def inferFromRepoList(repo_list: list[str]) -> RepoBundle:
         '''
         Creates a RepoBundle object by inferring a project from the list of repos in `repo_list`.
         The expectation is that `repo_list` would be something like
