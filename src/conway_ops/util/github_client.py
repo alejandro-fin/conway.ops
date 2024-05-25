@@ -1,21 +1,34 @@
-import requests                                             as _requests
+from httpx                                                  import AsyncClient
 
+from conway.application.application                         import Application
 from conway.util.secrets                                    import Secrets
 
-from conway_ops.util.github_response_handler          import GitHub_ReponseHandler
+from conway_ops.util.github_response_handler                import GitHub_ReponseHandler
 
 class GitHub_Client():
 
     '''
-    Utility class to invoke GitHub APIs
+    Asynchronous context manager used to invoke GitHub APIs
 
     :param str github_owner: the GitHub account under which we will be invoking GitHub APIs. May be a user or an
         organization.
     '''
     def __init__(self, github_owner):
         self.github_owner                       = github_owner
+        self.async_client                       = None # will be created in enter
 
-    def GET(self, resource, sub_path):
+    async def __aenter__(self):
+        '''
+        '''
+        self.async_client                       = AsyncClient()
+        return self
+
+    async def __aexit__(self, exc_type, exc_value, traceback):
+        '''
+        '''
+        await self.async_client.aclose()
+
+    async def GET(self, resource, sub_path):
         '''
         Invokes the "GET" HTTP verb on the GitHub API specified by the parameters.
 
@@ -26,9 +39,10 @@ class GitHub_Client():
         :return: A Json representation of the resource as given by the GitHub API
         :rtype: str
         '''
-        return self._http_call("GET", resource=resource, sub_path=sub_path, body={}, )
+        result                                  = await self._http_call("GET", resource=resource, sub_path=sub_path, body={}, )
+        return result
     
-    def POST(self, resource, sub_path, body):
+    async def POST(self, resource, sub_path, body):
         '''
         Invokes the "POST" HTTP verb on the Git Hub API to create a resource associated to this inspector's repo.
 
@@ -39,9 +53,10 @@ class GitHub_Client():
         :return: A Json representation of the resource as given by the GitHub API
         :rtype: str
         '''
-        return self._http_call("POST", resource=resource, sub_path=sub_path, body=body)
+        result                                  = await self._http_call("POST", resource=resource, sub_path=sub_path, body=body)
+        return result
     
-    def PUT(self, resource, sub_path, body):
+    async def PUT(self, resource, sub_path, body):
         '''
         Invokes the "PUT" HTTP verb on the Git Hub API to update a resource associated to this inspector's repo.
 
@@ -53,9 +68,10 @@ class GitHub_Client():
         :return: A Json representation of the resource as given by the GitHub API
         :rtype: str
         '''
-        return self._http_call("PUT", sub_path=sub_path, body=body, resource=resource)
+        result                                  = await self._http_call("PUT", sub_path=sub_path, body=body, resource=resource)
+        return result
            
-    def DELETE(self, resource, sub_path):
+    async def DELETE(self, resource, sub_path):
         '''
         Invokes the "DELETE" HTTP verb on the Git Hub API to update a resource associated to this inspector's repo.
 
@@ -67,9 +83,10 @@ class GitHub_Client():
         :return: A Json representation of the resource as given by the GitHub API
         :rtype: str
         '''
-        return self._http_call("DELETE", sub_path=sub_path, resource=resource)
+        result                                  = await self._http_call("DELETE", sub_path=sub_path, resource=resource)
+        return result
         
-    def _http_call(self, method, resource, sub_path, body={}):
+    async def _http_call(self, method, resource, sub_path, body={}):
         '''
         Invokes the Git Hub API specified by the parameters.
 
@@ -111,12 +128,13 @@ class GitHub_Client():
             
         }
         try:
-            response                        = _requests.request(method          = method, 
+            response                        = await self.async_client.request(   
+                                                                method          = method, 
                                                                 url             = url, 
                                                                 json            = body,
                                                                 headers         = headers, 
-                                                                timeout         = 20,
-                                                                verify          = True) 
+                                                                timeout         = 20) 
+            
 
         except Exception as ex:
             raise ValueError("Problem connecting to Git Hub. Error is: " + str(ex))

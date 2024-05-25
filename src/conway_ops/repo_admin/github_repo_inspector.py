@@ -35,7 +35,7 @@ class GitHub_RepoInspector(RepoInspector):
 
         self.github                             = GitHub_Client(github_owner = github_owner)
      
-    def current_branch(self):
+    async def current_branch(self):
         '''
         :return: The name of the current branch
         :rtype: str
@@ -46,7 +46,7 @@ class GitHub_RepoInspector(RepoInspector):
         # branch in the remote, we just treat "master" as the "current branch" in GitHub
         return "master"
     
-    def modified_files(self):
+    async def modified_files(self):
         '''
         :return: List of files that have been modified but not yet staged. In the boundary case where a file
             has an unstaged deletion, that does not count as "modified" as per the semantics of this method.
@@ -57,7 +57,7 @@ class GitHub_RepoInspector(RepoInspector):
         # So we return an empty list
         return []
     
-    def deleted_files(self):
+    async def deleted_files(self):
         '''
         :return: List of files with an unstaged deletion
         :rtype: list
@@ -67,7 +67,7 @@ class GitHub_RepoInspector(RepoInspector):
         # So we return an empty list
         return []
     
-    def untracked_files(self):
+    async def untracked_files(self):
         '''
         :return: List of files that are not tracked
         :rtype: list
@@ -77,12 +77,13 @@ class GitHub_RepoInspector(RepoInspector):
         # So we return an empty list
         return []
 
-    def last_commit(self):
+    async def last_commit(self):
         '''
         :return: A :class:`CommitInfo` with information about last commit"
         :rtype: str
         '''
-        data                                = self.github.GET(resource = "repos",
+        async with self.github:
+            data                            = await self.github.GET(resource = "repos",
                                                        sub_path = f"/{self.repo_name}/commits/master")
         
         commit_datetime                     = _parser.parse(data['commit']['author']['date'])
@@ -101,28 +102,30 @@ class GitHub_RepoInspector(RepoInspector):
 
         return result
 
-    def branches(self):
+    async def branches(self):
         '''
         :return: (local) branches for the repo
         :rtype: list[str]
         '''
-        data                                = self.github.GET(resource = "repos",
+        async with self.github:
+            data                            = await self.github.GET(resource = "repos",
                                                        sub_path = f"/{self.repo_name}/branches")
 
         result                              = [b['name'] for b in data]
 
         return result
 
-    def committed_files(self):
+    async def committed_files(self):
         '''
         Returns an iterable over CommitedFileInfo objects, yielding in chronological order the history of commits
         (i.e., a log) for the repo associated to this :class:`RepoInspector`
         '''
         # This provides the first most recent commit, and links to "parent" commits - the commits right before it
-        data                                = self.github.GET(resource = "repos",
+        async with self.github:
+            data                            = await self.github.GET(resource = "repos",
                                                        sub_path = f"/{self.repo_name}/commits/master")
 
-        results_dict                        = self._committed_files_impl(results_dict_so_far={}, data=data)
+        results_dict                        = await self._committed_files_impl(results_dict_so_far={}, data=data)
 
         # We need to sort commits by date in descending order (so most recent commits on top).
         # Remember that the keys of results_dict are pairs of strings representing (commit hash, commit date)
@@ -145,7 +148,7 @@ class GitHub_RepoInspector(RepoInspector):
 
         return aggregated_cfi_l
     
-    def pull_request(self, from_branch, to_branch, title, body):
+    async def pull_request(self, from_branch, to_branch, title, body):
         '''
         Creates and completes a pull request from the ``from_branch`` to the ``to_branch``.
 
@@ -161,14 +164,14 @@ class GitHub_RepoInspector(RepoInspector):
 
         :rtype: dict
         '''    
-        pr_result                           =  self._create_pull_request(from_branch, to_branch, title, body)
+        pr_result                           =  await self._create_pull_request(from_branch, to_branch, title, body)
         if pr_result is None:
             return None
         else:
             pull_number                     = pr_result['number']
-            return self._merge_pull_request(pr_result, f"[PR #{pull_number}] {title}")
+            return await self._merge_pull_request(pr_result, f"[PR #{pull_number}] {title}")
     
-    def _create_pull_request(self, from_branch, to_branch, title, body):
+    async def _create_pull_request(self, from_branch, to_branch, title, body):
         '''
         Creates a pull request from the ``from_branch`` to the ``to_branch``.
 
@@ -187,8 +190,8 @@ class GitHub_RepoInspector(RepoInspector):
                                                "head":      from_branch,
                                                "base":      to_branch}
 
-
-        pr_result                           =  self.github.POST(
+        async with self.github:
+            pr_result                       =  await self.github.POST(
                                                         resource    = "repos",
                                                         sub_path    = f"/{self.repo_name}/pulls", 
                                                         body        = pr_data)
@@ -201,7 +204,7 @@ class GitHub_RepoInspector(RepoInspector):
 
         return pr_result
         
-    def _merge_pull_request(self, pr, title):
+    async def _merge_pull_request(self, pr, title):
         '''
         Merges a pull request.
 
@@ -223,7 +226,8 @@ class GitHub_RepoInspector(RepoInspector):
                                                 "sha":              sha,
                                                 "merge_method":     "merge"}
 
-        merge_result                    =  self.github.PUT(    
+        async with self.github:
+            merge_result                    =  await self.github.PUT(    
                                                         resource    = "repos",
                                                         sub_path    = f"/{self.repo_name}/pulls/{pull_number}/merge", 
                                                         body        = merge_data)
@@ -233,7 +237,7 @@ class GitHub_RepoInspector(RepoInspector):
         return merge_result
 
     
-    def update_local(self, branch):
+    async def update_local(self, branch):
         '''
         This method is deliberatly not implemented, and will raise an error if called.
 
@@ -244,7 +248,7 @@ class GitHub_RepoInspector(RepoInspector):
         '''
         raise ValueError("This method does not apply for GitHub repos - never call it")
 
-    def _committed_files_impl(self, results_dict_so_far, data):
+    async def _committed_files_impl(self, results_dict_so_far, data):
         '''
         Helper method used to implement the recursion approach behind the method committed_files.
 
@@ -295,9 +299,10 @@ class GitHub_RepoInspector(RepoInspector):
 
         # Now do recursion, for each parent
         parents                             = data['parents']
-        for p in parents:
-            p_data                          = self.github.GET(resource = "repos",
+        async with self.github:
+            for p in parents:
+                p_data                      = await self.github.GET(resource = "repos",
                                                        sub_path = f"/{self.repo_name}/{p['url']}")
-            results_dict                    = self._committed_files_impl(results_dict, p_data)
+                results_dict                = await self._committed_files_impl(results_dict, p_data)
 
-        return results_dict
+            return results_dict
