@@ -26,7 +26,7 @@ class ProjectCreationContext:
         # These are set by the business logic running within the context
         self.files_l                                = None
 
-    def __enter__(self):
+    async def __aenter__(self):
         '''
         Returns self
         
@@ -52,7 +52,7 @@ class ProjectCreationContext:
 
         return self
 
-    def __exit__(self, exc_type, exc_value, exc_tb):
+    async def __aexit__(self, exc_type, exc_value, exc_tb):
 
         if not exc_value is None: # Propagate the exception. TODO: Maybe should put cleanup code for any GIT repos previously created
             return False

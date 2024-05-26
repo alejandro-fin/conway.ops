@@ -1,6 +1,9 @@
+import asyncio
+
 import git                                                          as _git
 from pathlib                                                        import Path
 
+from conway.application.application                                 import Application
 from conway.util.command_parser                                     import CommandParser
 
 class GitLocalClient():
@@ -27,7 +30,7 @@ class GitLocalClient():
         
         self.executor                                       = _git.cmd.Git(repo_path)
 
-    def execute(self, command):
+    async def execute(self, command):
         '''
         :param str command: a GIT command to execute. Example: "git status"
         :return: the result of attempting to invoke the GIT ``command``
@@ -43,7 +46,8 @@ class GitLocalClient():
         args_list                                           = CommandParser().get_argument_list(command)
         
         try:
-            response                                        = self.executor.execute(args_list)
+            response                                        = await asyncio.to_thread(self.executor.execute,
+                                                                                        args_list)
 
             return response
         except Exception as ex:

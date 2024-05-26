@@ -20,14 +20,14 @@ class RepoInspector(abc.ABC):
         self.repo_name                      = repo_name
 
     @abc.abstractmethod
-    def current_branch(self):
+    async def current_branch(self):
         '''
         :return: The name of the current branch
         :rtype: str
         '''
     
     @abc.abstractmethod
-    def modified_files(self):
+    async def modified_files(self):
         '''
         :return: List of files that have been modified but not yet staged. In the boundary case where a file
             has an unstaged deletion, that does not count as "modified" as per the semantics of this method.
@@ -35,42 +35,42 @@ class RepoInspector(abc.ABC):
         '''
     
     @abc.abstractmethod
-    def deleted_files(self):
+    async def deleted_files(self):
         '''
         :return: List of files with an unstaged deletion
         :rtype: list
         '''
 
     @abc.abstractmethod
-    def untracked_files(self):
+    async def untracked_files(self):
         '''
         :return: List of files that are not tracked
         :rtype: list
         '''
 
     @abc.abstractmethod
-    def last_commit(self):
+    async def last_commit(self):
         '''
         :return: A :class:`CommitInfo` with information about last commit"
         :rtype: str
         '''
     
     @abc.abstractmethod
-    def branches(self):
+    async def branches(self):
         '''
         :return: (local) branches for the repo
         :rtype: list[str]
         '''
 
     @abc.abstractmethod
-    def committed_files(self):
+    async def committed_files(self):
         '''
         Returns an iterable over CommitedFileInfo objects, yielding in chronological order the history of commits
         (i.e., a log) for the repo associated to this :class:`RepoInspector`
         '''
 
     @abc.abstractmethod
-    def pull_request(self, from_branch, to_branch, title, body):
+    async def pull_request(self, from_branch, to_branch, title, body):
         '''
         Creates and completes a pull request from the ``from_branch`` to the ``to_branch``.
 
@@ -79,7 +79,7 @@ class RepoInspector(abc.ABC):
 
 
     @abc.abstractmethod
-    def update_local(self, branch):
+    async def update_local(self, branch):
         '''
         Updates the local repo from the remote, for the given ``branch``.
 
@@ -88,7 +88,7 @@ class RepoInspector(abc.ABC):
         :param str branch: repo local branch to update from the remote.
         '''
 
-    def log_to_dataframe(self):
+    async def log_to_dataframe(self):
         '''
         :return: A DataFrame with log information. Each row in the DataFrame
             represents a file that was committed, so there are typically multiple rows per commit.
@@ -102,7 +102,7 @@ class RepoInspector(abc.ABC):
         commit_hash_l                                   = []
         commit_author_l                                 = []
 
-        for cfi in self.committed_files():
+        for cfi in await self.committed_files():
 
             commit_nb_l.                                append(cfi.commit_nb)
             commit_date_l.                              append(cfi.commit_date)

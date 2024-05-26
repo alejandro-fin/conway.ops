@@ -1,6 +1,8 @@
 from pathlib                                                        import Path
 import os                                                           as _os
 
+from conway.async_utils.ushering_to                                 import UsheringTo
+
 from conway_ops.onboarding.git_usage                                import GitUsage
 from conway_ops.onboarding.project_creation_context                 import ProjectCreationContext
 from conway_ops.onboarding.repo_bundle                              import RepoBundle
@@ -35,7 +37,7 @@ class ProjectCreator(RepoAdministration):
 
         super().__init__(local_root, remote_root, repo_bundle, remote_gh_user, remote_gh_organization, gh_secrets_path)          
 
-    def create_project(self, project_name, work_branch_name, scaffold_spec=None, git_usage=GitUsage.git_local_and_remote):
+    async def create_project(self, project_name, work_branch_name, scaffold_spec=None, git_usage=GitUsage.git_local_and_remote):
         '''
         Creates all the repos required for a project as per standard patterns of the 
         :class:``RepoBundle``.
@@ -54,16 +56,24 @@ class ProjectCreator(RepoAdministration):
         '''
         bundle                                          = RepoBundle(project_name)
         created_files_l                                 = []
-        for repo_info in bundle.bundled_repos():
 
-            with ProjectCreationContext(repo_admin=self, repo_name=repo_info.name, 
+        async def _create_one_repo(repo_info):
+            async with ProjectCreationContext(repo_admin=self, repo_name=repo_info.name, 
                                          git_usage          = git_usage,
                                          work_branch_name   = work_branch_name) as ctx:
                 
-                ctx.files_l                            = self._populate_filesystem_repo(repos_root         = ctx.repos_root, 
-                                                                                            repo_info       = repo_info,
-                                                                                            scaffold_spec   = scaffold_spec)
-                created_files_l.append(ctx.files_l)
+                ctx.files_l                            = await self._populate_filesystem_repo(
+                                                                            repos_root      = ctx.repos_root, 
+                                                                            repo_info       = repo_info,
+                                                                            scaffold_spec   = scaffold_spec)
+                return ctx.files_l
+
+        
+        async with UsheringTo(created_files_l) as usher:
+        
+            for repo_info in bundle.bundled_repos():
+                usher                                   += _create_one_repo(repo_info)
+
 
         # Now generate the config folder, which is external to all repos since it is runtime configuration that must
         # be set by the operator, not the developer
@@ -76,7 +86,7 @@ class ProjectCreator(RepoAdministration):
 
         return bundle # return bundle, created_files_l
       
-    def _populate_filesystem_repo(self, repos_root, repo_info, scaffold_spec):
+    async def _populate_filesystem_repo(self, repos_root, repo_info, scaffold_spec):
         '''
         Populates all generated content for a new repo.
 
