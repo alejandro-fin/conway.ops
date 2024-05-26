@@ -40,7 +40,7 @@ class RepoSetup():
         self.profile_path                               = f"{sdlc_root}/{sdlc_project}.profiles/{profile_name}/profile.toml" 
         self.profile                                    = UserProfile(self.profile_path)
 
-    def setup(self, project, filter=None, operate=False, root_folder=None):
+    async def setup(self, project, filter=None, operate=False, root_folder=None):
         '''
         For the given project, it clones and configures all repos for that project that are specified in 
         the user profile `self.profile_name`.
@@ -60,8 +60,6 @@ class RepoSetup():
                             repos for `project` will get cloned. If it is None, the project folder will be 
                             as specified by the suer profile `self.profile_name` 
         '''
-        return asyncio.run(self._supervisor(project, filter, operate, root_folder))
-    async def _supervisor(self, project, filter, operate, root_folder):
         P                                               = self.profile
         REPO_LIST                                       = P.REPO_LIST(project)
 

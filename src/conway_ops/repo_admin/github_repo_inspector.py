@@ -30,11 +30,9 @@ class GitHub_RepoInspector(RepoInspector):
         # to construct the URLs for other calls to the Git Hub API
         #
         cleaned_url                             = parent_url.strip("/").strip()
-        github_owner                            = cleaned_url.split("/")[-1]
-
-
-        self.github                             = GitHub_Client(github_owner = github_owner)
+        self.github_owner                       = cleaned_url.split("/")[-1]
      
+    
     async def current_branch(self):
         '''
         :return: The name of the current branch
@@ -82,8 +80,8 @@ class GitHub_RepoInspector(RepoInspector):
         :return: A :class:`CommitInfo` with information about last commit"
         :rtype: str
         '''
-        async with self.github:
-            data                            = await self.github.GET(resource = "repos",
+        async with self._init_ctx() as ctx:
+            data                            = await ctx.GET(resource = "repos",
                                                        sub_path = f"/{self.repo_name}/commits/master")
         
         commit_datetime                     = _parser.parse(data['commit']['author']['date'])
@@ -107,8 +105,8 @@ class GitHub_RepoInspector(RepoInspector):
         :return: (local) branches for the repo
         :rtype: list[str]
         '''
-        async with self.github:
-            data                            = await self.github.GET(resource = "repos",
+        async with self._init_ctx() as ctx:
+            data                            = await ctx.GET(resource = "repos",
                                                        sub_path = f"/{self.repo_name}/branches")
 
         result                              = [b['name'] for b in data]
@@ -121,11 +119,11 @@ class GitHub_RepoInspector(RepoInspector):
         (i.e., a log) for the repo associated to this :class:`RepoInspector`
         '''
         # This provides the first most recent commit, and links to "parent" commits - the commits right before it
-        async with self.github:
-            data                            = await self.github.GET(resource = "repos",
+        async with self._init_ctx() as ctx:
+            data                            = await ctx.GET(resource = "repos",
                                                        sub_path = f"/{self.repo_name}/commits/master")
 
-        results_dict                        = await self._committed_files_impl(results_dict_so_far={}, data=data)
+            results_dict                    = await self._committed_files_impl(ctx, results_dict_so_far={}, data=data)
 
         # We need to sort commits by date in descending order (so most recent commits on top).
         # Remember that the keys of results_dict are pairs of strings representing (commit hash, commit date)
@@ -164,19 +162,22 @@ class GitHub_RepoInspector(RepoInspector):
 
         :rtype: dict
         '''    
-        pr_result                           =  await self._create_pull_request(from_branch, to_branch, title, body)
-        if pr_result is None:
-            return None
-        else:
-            pull_number                     = pr_result['number']
-            return await self._merge_pull_request(pr_result, f"[PR #{pull_number}] {title}")
+        async with self._init_ctx() as ctx:
+            pr_result                       =  await self._create_pull_request(ctx, from_branch, to_branch, title, body)
+            if pr_result is None:
+                return None
+            else:
+                pull_number                 = pr_result['number']
+                return await self._merge_pull_request(ctx, pr_result, f"[PR #{pull_number}] {title}")
     
-    async def _create_pull_request(self, from_branch, to_branch, title, body):
+    async def _create_pull_request(self, ctx, from_branch, to_branch, title, body):
         '''
         Creates a pull request from the ``from_branch`` to the ``to_branch``.
 
         If anything goes wrong it raises an exception.
 
+        :param conway_ops.util.github_client.GitHub_Client ctx: context for making the HTTP call. It must be non-closed and should not
+            be shared with any other threads.
         :param str from_branch: GIT branch used as the source for the pull request
         :param str to_branch: GIT branch used as the destination for the pull request
         :returns: The pull request information. If the pull request was not created for a benign reason
@@ -190,8 +191,8 @@ class GitHub_RepoInspector(RepoInspector):
                                                "head":      from_branch,
                                                "base":      to_branch}
 
-        async with self.github:
-            pr_result                       =  await self.github.POST(
+
+        pr_result                       =  await ctx.POST(
                                                         resource    = "repos",
                                                         sub_path    = f"/{self.repo_name}/pulls", 
                                                         body        = pr_data)
@@ -204,12 +205,14 @@ class GitHub_RepoInspector(RepoInspector):
 
         return pr_result
         
-    async def _merge_pull_request(self, pr, title):
+    async def _merge_pull_request(self, ctx, pr, title):
         '''
         Merges a pull request.
 
         If anything goes wrong it raises an exception.
 
+        :param conway_ops.util.github_client.GitHub_Client ctx: context for making the HTTP call. It must be non-closed and should not
+            be shared with any other threads.
         :param dict pr: pull request object obtained from a previous API call to GitHub to create a pull request
         :param str title: Title for the pull request commit
         :returns: The mrege information. If no merge was needed, returns None.
@@ -226,8 +229,8 @@ class GitHub_RepoInspector(RepoInspector):
                                                 "sha":              sha,
                                                 "merge_method":     "merge"}
 
-        async with self.github:
-            merge_result                    =  await self.github.PUT(    
+
+        merge_result                    =  await ctx.PUT(    
                                                         resource    = "repos",
                                                         sub_path    = f"/{self.repo_name}/pulls/{pull_number}/merge", 
                                                         body        = merge_data)
@@ -248,7 +251,7 @@ class GitHub_RepoInspector(RepoInspector):
         '''
         raise ValueError("This method does not apply for GitHub repos - never call it")
 
-    async def _committed_files_impl(self, results_dict_so_far, data):
+    async def _committed_files_impl(self, ctx, results_dict_so_far, data):
         '''
         Helper method used to implement the recursion approach behind the method committed_files.
 
@@ -258,6 +261,8 @@ class GitHub_RepoInspector(RepoInspector):
         The incremental aggregation is effected by adding additional entries to the ``results_dict_so_far``
         dictionary.
 
+        :param conway_ops.util.github_client.GitHub_Client ctx: context for making the HTTP call. It must be non-closed and should not
+            be shared with any other threads.
         :param dict results_dict_so_far:  keys are pairs of strings (the commit hash and commit date) 
             and for each key the value is the list
             of CommittedFileInfo objects for this commit. It represents the information we seek for 
@@ -299,10 +304,13 @@ class GitHub_RepoInspector(RepoInspector):
 
         # Now do recursion, for each parent
         parents                             = data['parents']
-        async with self.github:
-            for p in parents:
-                p_data                      = await self.github.GET(resource = "repos",
-                                                       sub_path = f"/{self.repo_name}/{p['url']}")
-                results_dict                = await self._committed_files_impl(results_dict, p_data)
 
-            return results_dict
+        for p in parents:
+            p_data                          = await ctx.GET(resource = "repos",
+                                                    sub_path = f"/{self.repo_name}/{p['url']}")
+            results_dict                    = await self._committed_files_impl(ctx, results_dict, p_data)
+
+        return results_dict
+        
+    def _init_ctx(self):
+        return GitHub_Client(github_owner = self.github_owner)

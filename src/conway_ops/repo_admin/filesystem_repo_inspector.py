@@ -331,7 +331,7 @@ class FileSystem_RepoInspector(RepoInspector):
                 it returns None.
         '''    
         # Remember the original branch that is checked out in the remote, so that later we can go back to it
-        original_branch     = self.current_branch()
+        original_branch     = await self.current_branch()
         executor            = GitLocalClient(self.parent_url + "/" + self.repo_name) 
 
         if to_branch != original_branch:
@@ -356,7 +356,7 @@ class FileSystem_RepoInspector(RepoInspector):
         '''
         Logger.log_info(f"local = '{self.parent_url}/{self.repo_name}'")
         # Remember the original branch that is checked out in the remote, so that later we can go back to it
-        original_branch     = self.current_branch()
+        original_branch     = await self.current_branch()
 
         executor            = GitLocalClient(self.parent_url + "/" + self.repo_name) 
 
