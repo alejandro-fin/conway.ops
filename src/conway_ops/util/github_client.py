@@ -1,21 +1,45 @@
-import requests                                             as _requests
+from httpx                                                  import AsyncClient
 
+from conway.application.application                         import Application
 from conway.util.secrets                                    import Secrets
 
-from conway_ops.util.github_response_handler          import GitHub_ReponseHandler
+from conway_ops.util.github_response_handler                import GitHub_ReponseHandler
 
 class GitHub_Client():
 
     '''
-    Utility class to invoke GitHub APIs
+    Asynchronous context manager used to invoke GitHub APIs
 
     :param str github_owner: the GitHub account under which we will be invoking GitHub APIs. May be a user or an
         organization.
     '''
     def __init__(self, github_owner):
         self.github_owner                       = github_owner
+        self.async_client                       = None # will be created in enter
 
-    def GET(self, resource, sub_path):
+        # We need to enforce that this context manager instance is only entered once at a time, since if two
+        # threads enter it at the same time, the second one will reset the pointer to the
+        # self.async_client, leaving a dangling HTTP connection and/or causing problems with resources being closed
+        # by one thread that affects the other thread. 
+        self.reference_counter                  = 0
+
+    async def __aenter__(self):
+        '''
+        '''
+        self.reference_counter                  += 1
+        if self.reference_counter > 1:
+            raise ValueError("Invalid use of the GitHub_Client context manager: you are entering the same context"
+                             + " a second time, before the first traversal through this context has closed.")
+        self.async_client                       = AsyncClient()
+        return self
+
+    async def __aexit__(self, exc_type, exc_value, traceback):
+        '''
+        '''
+        await self.async_client.aclose()
+        self.reference_counter                  -= 1
+
+    async def GET(self, resource, sub_path):
         '''
         Invokes the "GET" HTTP verb on the GitHub API specified by the parameters.
 
@@ -26,9 +50,10 @@ class GitHub_Client():
         :return: A Json representation of the resource as given by the GitHub API
         :rtype: str
         '''
-        return self._http_call("GET", resource=resource, sub_path=sub_path, body={}, )
+        result                                  = await self._http_call("GET", resource=resource, sub_path=sub_path, body={}, )
+        return result
     
-    def POST(self, resource, sub_path, body):
+    async def POST(self, resource, sub_path, body):
         '''
         Invokes the "POST" HTTP verb on the Git Hub API to create a resource associated to this inspector's repo.
 
@@ -39,9 +64,10 @@ class GitHub_Client():
         :return: A Json representation of the resource as given by the GitHub API
         :rtype: str
         '''
-        return self._http_call("POST", resource=resource, sub_path=sub_path, body=body)
+        result                                  = await self._http_call("POST", resource=resource, sub_path=sub_path, body=body)
+        return result
     
-    def PUT(self, resource, sub_path, body):
+    async def PUT(self, resource, sub_path, body):
         '''
         Invokes the "PUT" HTTP verb on the Git Hub API to update a resource associated to this inspector's repo.
 
@@ -53,9 +79,10 @@ class GitHub_Client():
         :return: A Json representation of the resource as given by the GitHub API
         :rtype: str
         '''
-        return self._http_call("PUT", sub_path=sub_path, body=body, resource=resource)
+        result                                  = await self._http_call("PUT", sub_path=sub_path, body=body, resource=resource)
+        return result
            
-    def DELETE(self, resource, sub_path):
+    async def DELETE(self, resource, sub_path):
         '''
         Invokes the "DELETE" HTTP verb on the Git Hub API to update a resource associated to this inspector's repo.
 
@@ -67,9 +94,10 @@ class GitHub_Client():
         :return: A Json representation of the resource as given by the GitHub API
         :rtype: str
         '''
-        return self._http_call("DELETE", sub_path=sub_path, resource=resource)
+        result                                  = await self._http_call("DELETE", sub_path=sub_path, resource=resource)
+        return result
         
-    def _http_call(self, method, resource, sub_path, body={}):
+    async def _http_call(self, method, resource, sub_path, body={}):
         '''
         Invokes the Git Hub API specified by the parameters.
 
@@ -110,16 +138,50 @@ class GitHub_Client():
             'Accept'        : 'application/vnd.github+json'
             
         }
+
+        # Before making the HTTP call, make some pre-flight checks. 
+        #
+        self._check_readiness()
+
+        # Now that we did our pre-flight check, make the HTTP call
         try:
-            response                        = _requests.request(method          = method, 
+            response                        = await self.async_client.request(   
+                                                                method          = method, 
                                                                 url             = url, 
                                                                 json            = body,
                                                                 headers         = headers, 
-                                                                timeout         = 20,
-                                                                verify          = True) 
+                                                                timeout         = 20) 
+            
 
         except Exception as ex:
             raise ValueError("Problem connecting to Git Hub. Error is: " + str(ex))
         
         return GitHub_ReponseHandler().process(response)    
 
+
+    def _check_readiness(self):
+        '''
+        Helper method intended to be called before invoking `self.async_client` methods that make HTTP calls.
+
+        If any of its checks fails, it raises a ValueError. Else it returns None.
+        
+        Motivation for these checks:
+            1.  This class `GitHub_Client` is an async context manager, and callers should only use it that
+                way. So if the caller is making HTTP calls via `GitHub_Client` but using an instance X of it 
+                that is not within an "async with X" statement, then we want to error out.
+            2.  Even if the caller initially made HTTP calls correctly using an instance X of `GitHub_Client`
+                via an `async with X` statement, we want to make sure the caller does not reuse of that instance X
+                outside of that `async with X` statement, since upon exiting the `asycn with X` statement
+                we closed the `self.async_client`, and it will error out with hard to track error message
+                like "ClosedResourceError". By pre-empting such errors via this `_check_readiness` check,
+                we can cause the error to instead be triggered by the Conway code base, making it more obvious
+                to see the caller code base that led to the problem, by inspecting the error's stack trace.
+        '''
+        if self.async_client is None:
+            raise ValueError("Invalid use of GitHub_Client methods: please invoke them only within an "
+                             + "`asycn with X` statement, where `X` is an instance of `GitHub_Client")
+        
+        if self.async_client.is_closed:
+            raise ValueError("Invalid reuse of GitHub_Client instance since it is already closed. "
+                             + "This can happen when you reuse a prior GitHub_Client instance outside its "
+                             + "original `async with  ...` statement.")

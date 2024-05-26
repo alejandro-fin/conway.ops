@@ -1,3 +1,4 @@
+import asyncio
 import sys                                                                  as _sys
 
 CODING_ROOT = "/home/alex/consultant1@CCL/dev"
@@ -31,11 +32,12 @@ class Troubleshooter():
         # Select what to troubleshoot, and comment out whatever we are not troubleshooting
         #
         with Profiler("Troubleshooting"):
+            with asyncio.Runner() as runner:
             
-            self.create_pull_request()
-            #self.troubleshoot_repo_report()
+                runner.run(self.create_pull_request())
+                #runner.run(self.troubleshoot_repo_report())
 
-    def create_pull_request(self):
+    async def create_pull_request(self):
         '''
         '''
         # Pre-flight: need to initialize an application since the GitHub_RepoInspector will  need to read an
@@ -51,13 +53,13 @@ class Troubleshooter():
         # Now the main troubleshooting
         REPO_NAME = 'conway.ops'
         gh                                  = GitHub_RepoInspector(parent_url=REMOTE_CONWAY_FORK_ROOT, repo_name=REPO_NAME)
-        pr1                                 = gh.pull_request(from_branch   = "integration", 
-                                                              to_branch     = "master", 
-                                                              title         = "Dummy PR for test purposes",
-                                                              body          = "Discard this PR")
+        pr1                                 = await gh.pull_request(    from_branch   = "integration", 
+                                                                        to_branch     = "master", 
+                                                                        title         = "Dummy PR for test purposes",
+                                                                        body          = "Discard this PR")
         return pr1
         
-    def troubleshoot_repo_report(self):
+    async def troubleshoot_repo_report(self):
         '''
         '''
         CRB                                 = Chassis_RepoBundle()
@@ -66,7 +68,7 @@ class Troubleshooter():
         conway_admin                        = RepoAdministration(local_root     = CONWAY_ROOT_FORK, 
                                                                 remote_root     = REMOTE_CONWAY_FORK_ROOT, 
                                                                 repo_bundle     = CRB)
-        conway_admin.create_repo_report(publications_folder     = PUBLICATION_FOLDER, 
+        await conway_admin.create_repo_report(publications_folder     = PUBLICATION_FOLDER, 
                                         repos_in_scope_l        = CONWAY_LOCAL_REPOS)
 
 

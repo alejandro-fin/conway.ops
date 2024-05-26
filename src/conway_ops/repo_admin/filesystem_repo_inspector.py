@@ -35,21 +35,21 @@ class FileSystem_RepoInspector(RepoInspector):
         return repo
 
 
-    def current_branch(self):
+    async def current_branch(self):
         '''
         :return: The name of the current branch
         :rtype: str
         '''
-        result                              = self.executor.execute(command = "git rev-parse --abbrev-ref HEAD")
+        result                              = await self.executor.execute(command = "git rev-parse --abbrev-ref HEAD")
         return result
     
-    def modified_files(self):
+    async def modified_files(self):
         '''
         :return: List of files that have been modified but not yet staged. In the boundary case where a file
             has an unstaged deletion, that does not count as "modified" as per the semantics of this method.
         :rtype: list
         '''
-        raw                                 = self.executor.execute(command = "git ls-files -m")
+        raw                                 = await self.executor.execute(command = "git ls-files -m")
 
         # raw is something like
         #
@@ -62,17 +62,17 @@ class FileSystem_RepoInspector(RepoInspector):
         # Under git semantics, the modified files obtained by doing "git ls-files -m" includes unstaged deletions.
         # So to get the "real" list of modified files, exclude deletes
         #
-        deleted_files_l                     = self.deleted_files()
+        deleted_files_l                     = await self.deleted_files()
         result                              = [f for f in files_l if not f in deleted_files_l]
 
         return result
     
-    def deleted_files(self):
+    async def deleted_files(self):
         '''
         :return: List of files with an unstaged deletion
         :rtype: list
         '''
-        raw                                 = self.executor.execute(command = "git ls-files -d")
+        raw                                 = await self.executor.execute(command = "git ls-files -d")
         # raw is something like
         #
         #       'src/vulnerability_management/projector/vm_database_projector.py\nsrc/vulnerability_management/util/static_globals.py'
@@ -83,12 +83,12 @@ class FileSystem_RepoInspector(RepoInspector):
 
         return result
 
-    def untracked_files(self):
+    async def untracked_files(self):
         '''
         :return: List of files that are not tracked
         :rtype: list
         '''
-        raw                                 = self.executor.execute(command = "git ls-files -o --exclude-standard")
+        raw                                 = await self.executor.execute(command = "git ls-files -o --exclude-standard")
         # raw is something like
         #
         #       'src/vulnerability_management/projector/vm_database_projector.py\nsrc/vulnerability_management/util/static_globals.py'
@@ -99,12 +99,12 @@ class FileSystem_RepoInspector(RepoInspector):
 
         return result
 
-    def last_commit(self):
+    async def last_commit(self):
         '''
         :return: A :class:`CommitInfo` with information about last commit"
         :rtype: str
         '''
-        raw                                 = self.executor.execute(command = 'git log -1 --pretty=format:"%H|%ai|%s"')
+        raw                                 = await self.executor.execute(command = 'git log -1 --pretty=format:"%H|%ai|%s"')
 
         # raw is something like
         #
@@ -148,12 +148,12 @@ class FileSystem_RepoInspector(RepoInspector):
 
         return result
     
-    def branches(self):
+    async def branches(self):
         '''
         :return: (local) branches for the repo
         :rtype: list[str]
         '''
-        raw                                 = self.executor.execute(command = 'git branch')
+        raw                                 = await self.executor.execute(command = 'git branch')
         # raw is something like
         #
         #               '  ah-dev\n  integration\n  operate\n* story_1485'
@@ -162,20 +162,20 @@ class FileSystem_RepoInspector(RepoInspector):
         result                              = [b.strip("*").strip() for b in raw.split("\n") if not "->" in b]
         return result
 
-    def checkout(self, branch_name):
+    async def checkout(self, branch_name):
         '''
         :return: A status from switching to branch ``branch_name``
         :rtype: str
         '''
-        result                              = self.executor.execute(command = "git checkout " + str(branch_name))
+        result                              = await self.executor.execute(command = "git checkout " + str(branch_name))
         return result
 
-    def committed_files(self):
+    async def committed_files(self):
         '''
         Returns an iterable over CommitedFileInfo objects, yielding in chronological order the history of commits
         (i.e., a log) for the repo associated to this :class:`RepoInspector`
         '''
-        log                                             = self.executor.execute(command = "git log --name-only")
+        log                                             = await self.executor.execute(command = "git log --name-only")
         commits                                         = log.split("commit ")
         commits                                         = [c for c in commits if len(c)>0] # Filter out spurious tokens
 
@@ -314,7 +314,7 @@ class FileSystem_RepoInspector(RepoInspector):
         return result
     
 
-    def pull_request(self, from_branch, to_branch, title, body):
+    async def pull_request(self, from_branch, to_branch, title, body):
         '''
         Creates and completes a pull request from the ``from_branch`` to the ``to_branch``.
 
@@ -331,22 +331,22 @@ class FileSystem_RepoInspector(RepoInspector):
                 it returns None.
         '''    
         # Remember the original branch that is checked out in the remote, so that later we can go back to it
-        original_branch     = self.current_branch()
+        original_branch     = await self.current_branch()
         executor            = GitLocalClient(self.parent_url + "/" + self.repo_name) 
 
         if to_branch != original_branch:
-            status1         = executor.execute(command = 'git checkout ' + to_branch)
+            status1         = await executor.execute(command = 'git checkout ' + to_branch)
             Logger.log_info(f"@ '{to_branch}' (local):\n\n{status1}")
 
-        status2             = executor.execute(command = 'git merge ' + from_branch)
+        status2             = await executor.execute(command = 'git merge ' + from_branch)
         Logger.log_info(f"'{from_branch}' (local) -> '{to_branch}' (local):\n\n{status2}")
 
         # Restore original branch
         if to_branch != original_branch:
-            status3             = executor.execute(command = 'git checkout ' + original_branch)
+            status3             = await executor.execute(command = 'git checkout ' + original_branch)
             Logger.log_info(f"@ '{original_branch}' (local):\n\n{status3}")
 
-    def update_local(self, branch):
+    async def update_local(self, branch):
         '''
         Updates the local repo from the remote, for the given ``branch``.
 
@@ -356,19 +356,19 @@ class FileSystem_RepoInspector(RepoInspector):
         '''
         Logger.log_info(f"local = '{self.parent_url}/{self.repo_name}'")
         # Remember the original branch that is checked out in the remote, so that later we can go back to it
-        original_branch     = self.current_branch()
+        original_branch     = await self.current_branch()
 
         executor            = GitLocalClient(self.parent_url + "/" + self.repo_name) 
 
         if branch != original_branch:
-            status1         = executor.execute(command = 'git checkout ' + branch)
+            status1         = await executor.execute(command = 'git checkout ' + branch)
             Logger.log_info(f"@ '{branch}' (local):\n\n{status1}")
 
-        status2             = executor.execute(command = 'git pull')
+        status2             = await executor.execute(command = 'git pull')
         Logger.log_info(f"'{branch}' (remote) -> '{branch}' (local):\n\n{status2}")
 
         # Restore original branch
         if branch != original_branch:
-            status3             = executor.execute(command = 'git checkout ' + original_branch)
+            status3             = await executor.execute(command = 'git checkout ' + original_branch)
             Logger.log_info(f"@ '{original_branch}' (local):\n\n{status3}")
             
