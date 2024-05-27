@@ -86,6 +86,7 @@ class NotebookUtils(abc.ABC):
         from conway.util.path_utils                                             import PathUtils
         from conway.util.timestamp                                              import Timestamp
         from conway.util.profiler                                               import Profiler
+        from conway.util.yaml_utils                                             import YAML_Utils
         from conway.database.data_accessor                                      import DataAccessor
         from conway.reports.report_writer                                       import ReportWriter
 
@@ -104,6 +105,7 @@ class NotebookUtils(abc.ABC):
         self.PathUtils                          = PathUtils
         self.Timestamp                          = Timestamp
         self.Profiler                           = Profiler
+        self.YAML_Utils                         = YAML_Utils
         self.DataAccessor                       = DataAccessor
         self.ReportWriter                       = ReportWriter
 
