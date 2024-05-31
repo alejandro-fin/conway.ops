@@ -129,7 +129,8 @@ class RepoSetup():
 
 
             for branch in BRANCHES_TO_CREATE[1:]:
-            
+                await self.create_branch(branch, cloned_repo.working_dir)
+                '''
                 # Only create branch with '-b' option if it already exists.
                 if await local_git.execute(command             = f"git branch --list {branch}") == "":
                     await local_git.execute(command            = f"git checkout -b {branch}")
@@ -141,6 +142,7 @@ class RepoSetup():
                     await local_git.execute(command            = f"git push origin -u {branch}")
                 else:
                     await local_git.execute(command            = f"git branch --set-upstream-to=origin/{branch} {branch}")
+                '''
 
             Logger.log_info(f"\t... created branches {BRANCHES_TO_CREATE[1:]} for repo '{repo_name}' ...")
             
@@ -149,6 +151,27 @@ class RepoSetup():
 
         # By away of status, return the repo_name so the caller knows which repo was created
         return repo_name
+
+    async def create_branch(self, branch_name, working_dir):
+        '''
+        Creates a local branch in the local repo, and if required it also creates it in the remote.
+
+        :param str branch_name: name of the branch to create
+        :param str working_dir: name of the working directory in the local filesystem for the location of the
+            GIT repo for which the branch needs to be created.
+        '''
+        local_git                                       = GitLocalClient(working_dir)
+        # Only create branch with '-b' option if it already exists.
+        if await local_git.execute(command             = f"git branch --list {branch_name}") == "":
+            await local_git.execute(command            = f"git checkout -b {branch_name}")
+        else:
+            await local_git.execute(command            = f"git checkout {branch_name}")
+
+        # Check if branch exists in remote. If not, push local branch. If yes, set it as the upstream.
+        if await local_git.execute(command             = f"git ls-remote --heads origin {branch_name}") == "":
+            await local_git.execute(command            = f"git push origin -u {branch_name}")
+        else:
+            await local_git.execute(command            = f"git branch --set-upstream-to=origin/{branch_name} {branch_name}")
 
 
     async def configure(self, repo_path):
