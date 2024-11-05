@@ -79,9 +79,10 @@ class NotebookUtils(abc.ABC):
         from conway_ops.scaffolding.scaffold_generator                          import ScaffoldGenerator
         from conway_ops.scaffolding.scaffold_spec                               import ScaffoldSpec
         from conway_ops.util.git_branches                                       import GitBranches
-        from conway_ops.util.git_local_client                                         import GitLocalClient
+        from conway_ops.util.git_local_client                                   import GitLocalClient
         
         from conway.application.application                                     import Application
+        from conway.async_utils.schedule_based_log_sorter                       import ScheduleBasedLogSorter
         from conway.util.dataframe_utils                                        import DataFrameUtils
         from conway.util.path_utils                                             import PathUtils
         from conway.util.timestamp                                              import Timestamp
@@ -101,6 +102,7 @@ class NotebookUtils(abc.ABC):
         self.GitLocalClient                          = GitLocalClient
 
         self.Application                        = Application
+        self.ScheduleBasedLogSorter             = ScheduleBasedLogSorter
         self.DataFrameUtils                     = DataFrameUtils
         self.PathUtils                          = PathUtils
         self.Timestamp                          = Timestamp
