@@ -2,6 +2,7 @@ import asyncio
 
 from git                                                            import Repo
 
+from conway.async_utils.scheduling_context                          import SchedulingContext
 from conway.observability.logger                                    import Logger
 from conway.util.profiler                                           import Profiler
 from conway.util.secrets                                            import Secrets
@@ -69,7 +70,11 @@ class RepoSetup():
 
         result_l                                        =  []
 
-        to_do                                           = [self._setup_one_repo(repo_name, project, operate, root_folder)
+        to_do                                           = [self._setup_one_repo(SchedulingContext(), 
+                                                                                repo_name, 
+                                                                                project, 
+                                                                                operate, 
+                                                                                root_folder)
                                                             for repo_name in repos_to_clone]
 
         to_do_iter                                      = asyncio.as_completed(to_do)
@@ -80,8 +85,12 @@ class RepoSetup():
         result_l
 
 
-    async def _setup_one_repo(self, repo_name, project, operate, root_folder):
+    async def _setup_one_repo(self, scheduling_context, repo_name, project, operate, root_folder):
         '''
+        :param scheduling_context: contains information about the stack at the time that this coroutine was created.
+            Typical use case is to reflect in the logs that order in which the code was written (i.e., the logical
+            order) as opposed to the order in which the code is executed asynchronousy.
+        :type scheduling_context: conway.async_utils.scheduling_context.SchedulingContext
         '''
         P                                               = self.profile
 
@@ -94,7 +103,7 @@ class RepoSetup():
         branch_to_clone                                 = BRANCHES_TO_CREATE[0]
         kwargs                                          = {"branch": branch_to_clone}
 
-        with Profiler(f"Setting up repo '{repo_name}'"):
+        with Profiler(f"Setting up repo '{repo_name}'", scheduling_context=scheduling_context):
 
             remote_url                                  = f"{REMOTE_ROOT}/{repo_name}.git"
             local_url                                   = f"{LOCAL_ROOT}/{project}/{repo_name}"
@@ -107,7 +116,7 @@ class RepoSetup():
                                     + f"\n\rlocal = {local_url}"
                                     + f"\n\terror = {ex}"
                                     )
-            Logger.log_info(f"\t... cloned repo '{repo_name}' ...")
+            Logger.log_info(f"\t... cloned repo '{repo_name}' ...", xlabels=scheduling_context.as_xlabel())
             
             local_git                                   = GitLocalClient(cloned_repo.working_dir)
 
@@ -144,9 +153,10 @@ class RepoSetup():
                     await local_git.execute(command            = f"git branch --set-upstream-to=origin/{branch} {branch}")
                 '''
 
-            Logger.log_info(f"\t... created branches {BRANCHES_TO_CREATE[1:]} for repo '{repo_name}' ...")
+            Logger.log_info(f"\t... created branches {BRANCHES_TO_CREATE[1:]} for repo '{repo_name}' ...",
+                            xlabels=scheduling_context.as_xlabel())
             
-            with Profiler(f"\tConfiguring repo '{repo_name}' ..."):
+            with Profiler(f"\tConfiguring repo '{repo_name}' ...", scheduling_context=scheduling_context):
                 await self.configure(cloned_repo.working_dir)
 
         # By away of status, return the repo_name so the caller knows which repo was created
