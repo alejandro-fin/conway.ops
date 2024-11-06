@@ -33,7 +33,8 @@ class Chassis_NB_Application(Application):
 
         APP_NAME                                        = "ChassisNotebookApp"
 
-        logger                                          = NB_Logger(activation_level=Logger.LEVEL_INFO)
+        logger                                          = NB_Logger(activation_level=Logger.LEVEL_INFO,
+                                                                      schedule_based_logging=True)
           
         # __file__ is something like 
         #
