@@ -34,5 +34,21 @@ class Chassis_NB_Utils(NotebookUtils):
 
         super().__init__(project_name="conway", repo_directory=repo_directory)
 
+    def _import_conway_dependencies(self):
+        '''
+        Imports common Conway modules that are often needed in application notebooks, and remembers them as attributes
+        of self
+        '''
+        super()._import_conway_dependencies()
+        
+        # NB: If you are reading this code in an IDE, it is possible that the imports below are shown by the
+        #   IDE as if they are not found. That is not correct - IDEs are confused because the path to these
+        #   modules was added dynamically by the call to self._display_environment(), which happens
+        #   before this method is called
+        #
+        from conway_ops.onboarding.repo_bundle_factory                          import RepoBundleFactory
+
+        self.RepoBundleFactory                 = RepoBundleFactory
+
 
 
