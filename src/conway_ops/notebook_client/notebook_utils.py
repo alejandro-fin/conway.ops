@@ -36,6 +36,18 @@ class NotebookUtils(abc.ABC):
         self._import_dependencies()
         self._import_conway_dependencies()
 
+    def flush_logs(self):
+        '''
+        This method is only applicable for derived classes associated to Conway Applications that configure
+        logs to use schedule-based logging, i.e., to log in the order the code was written, not in the order
+        the code was executed. The two may differ when using asyncio due to the non-deterministic nature of
+        the order in which the asyncio event loop executes tasks.
+
+        See conway.async_tuils.schedule_based_log_sorter.py for more information on schedule-based logging.
+
+        For such situations, this method will invoke the `conway.observability.logger.Logger.flush` method.
+        '''
+        Application.app().logger.flush()
 
     def _import_dependencies(self):
         '''
