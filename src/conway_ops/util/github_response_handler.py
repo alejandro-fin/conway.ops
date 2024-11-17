@@ -9,9 +9,16 @@ class GitHub_ReponseHandler(HTTP_ResponseHandler):
     def __init__(self):
         super().__init__()
 
-    def process(self, response):
+    def process(self, parent_context, response):
         '''
-        :param requests.models.Response response: HTTP response object to process
+        :param response: HTTP response object to process
+        :type response: requests.models.Response
+        
+        :param parent_context: the SchedulingContext of a "parent". Typical use case would be that
+            the "parent" is the SchedulingContext of a caller that directly or indirectly led to the call of this
+            method.
+        :type parent_context: conway.async_utils.scheduling_context.SchedulingContext
+
         :returns: The payload of the response, if the handler considers the response successful. Otherwise
                 the handler will raise an exception.
         :rtype: dict
@@ -32,9 +39,12 @@ class GitHub_ReponseHandler(HTTP_ResponseHandler):
                                     'resource': 'PullRequest',      \
                                     'code': 'custom',               \
                                     'message': msg                  \
-                            }],                                                             \
+                            }],                                     \
                             'documentation_url': doc_url}:
-                        Application.app().log(f"PR ignored: '{msg}'")
+                        if not parent_context is None:
+                            Application.app().log(f"PR ignored: '{msg}'", xlabels=parent_context.as_xlabel())
+                        else:
+                            Application.app().log(f"PR ignored: '{msg}'")
                         return None
 
                     case _:

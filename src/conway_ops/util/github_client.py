@@ -39,9 +39,14 @@ class GitHub_Client():
         await self.async_client.aclose()
         self.reference_counter                  -= 1
 
-    async def GET(self, resource, sub_path):
+    async def GET(self, parent_context, resource, sub_path):
         '''
         Invokes the "GET" HTTP verb on the GitHub API specified by the parameters.
+
+        :param parent_context: the SchedulingContext of a "parent". Typical use case would be that
+            the "parent" is the SchedulingContext of a caller that directly or indirectly led to the call of this
+            method.
+        :type parent_context: conway.async_utils.scheduling_context.SchedulingContext
 
         :param str resource: indicates the top resource for the API. For example, "{owner}/repos". 
         :param str sub_path: Indicates the path of a desired sub-resource to get, under the URL for the
@@ -50,12 +55,17 @@ class GitHub_Client():
         :return: A Json representation of the resource as given by the GitHub API
         :rtype: str
         '''
-        result                                  = await self._http_call("GET", resource=resource, sub_path=sub_path, body={}, )
+        result                                  = await self._http_call(parent_context, "GET", resource=resource, sub_path=sub_path, body={}, )
         return result
     
-    async def POST(self, resource, sub_path, body):
+    async def POST(self, parent_context, resource, sub_path, body):
         '''
         Invokes the "POST" HTTP verb on the Git Hub API to create a resource associated to this inspector's repo.
+
+        :param parent_context: the SchedulingContext of a "parent". Typical use case would be that
+            the "parent" is the SchedulingContext of a caller that directly or indirectly led to the call of this
+            method.
+        :type parent_context: conway.async_utils.scheduling_context.SchedulingContext
 
         :param str resource: indicates the top resource for the API. For example, "{owner}/repos". 
         :param str sub_path: Indicates the path of a desired sub-resource to create, under the URL for the
@@ -64,12 +74,17 @@ class GitHub_Client():
         :return: A Json representation of the resource as given by the GitHub API
         :rtype: str
         '''
-        result                                  = await self._http_call("POST", resource=resource, sub_path=sub_path, body=body)
+        result                                  = await self._http_call(parent_context, "POST", resource=resource, sub_path=sub_path, body=body)
         return result
     
-    async def PUT(self, resource, sub_path, body):
+    async def PUT(self, parent_context, resource, sub_path, body):
         '''
         Invokes the "PUT" HTTP verb on the Git Hub API to update a resource associated to this inspector's repo.
+
+        :param parent_context: the SchedulingContext of a "parent". Typical use case would be that
+            the "parent" is the SchedulingContext of a caller that directly or indirectly led to the call of this
+            method.
+        :type parent_context: conway.async_utils.scheduling_context.SchedulingContext
 
         :param str resource: indicates the top resource for the API. For example, "{owner}/repos".
         :param str sub_path: Indicates the path of a desired sub-resource to update, under the URL for the
@@ -79,12 +94,17 @@ class GitHub_Client():
         :return: A Json representation of the resource as given by the GitHub API
         :rtype: str
         '''
-        result                                  = await self._http_call("PUT", sub_path=sub_path, body=body, resource=resource)
+        result                                  = await self._http_call(parent_context, "PUT", sub_path=sub_path, body=body, resource=resource)
         return result
            
-    async def DELETE(self, resource, sub_path):
+    async def DELETE(self, parent_context, resource, sub_path):
         '''
         Invokes the "DELETE" HTTP verb on the Git Hub API to update a resource associated to this inspector's repo.
+
+        :param parent_context: the SchedulingContext of a "parent". Typical use case would be that
+            the "parent" is the SchedulingContext of a caller that directly or indirectly led to the call of this
+            method.
+        :type parent_context: conway.async_utils.scheduling_context.SchedulingContext
 
         :param str resource: indicates the top resource for the API. For example, "{owner}/repos". 
         :param str sub_path: Indicates the path of a desired sub-resource to delete, under the URL for the
@@ -94,12 +114,17 @@ class GitHub_Client():
         :return: A Json representation of the resource as given by the GitHub API
         :rtype: str
         '''
-        result                                  = await self._http_call("DELETE", sub_path=sub_path, resource=resource)
+        result                                  = await self._http_call(parent_context, "DELETE", sub_path=sub_path, resource=resource)
         return result
         
-    async def _http_call(self, method, resource, sub_path, body={}):
+    async def _http_call(self, parent_context, method, resource, sub_path, body={}):
         '''
         Invokes the Git Hub API specified by the parameters.
+
+        :param parent_context: the SchedulingContext of a "parent". Typical use case would be that
+            the "parent" is the SchedulingContext of a caller that directly or indirectly led to the call of this
+            method.
+        :type parent_context: conway.async_utils.scheduling_context.SchedulingContext
 
         :param str method: the HTTP verb to use ("GET", "POST", or "PUT")
         :param str sub_path: Indicates the path of a desired sub-resource to delete, under the URL for the
@@ -156,7 +181,7 @@ class GitHub_Client():
         except Exception as ex:
             raise ValueError("Problem connecting to Git Hub. Error is: " + str(ex))
         
-        return GitHub_ReponseHandler().process(response)    
+        return GitHub_ReponseHandler().process(parent_context=parent_context, response=response)    
 
 
     def _check_readiness(self):

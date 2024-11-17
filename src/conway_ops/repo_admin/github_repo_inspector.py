@@ -81,8 +81,10 @@ class GitHub_RepoInspector(RepoInspector):
         :rtype: str
         '''
         async with self._init_ctx() as ctx:
-            data                            = await ctx.GET(resource = "repos",
-                                                       sub_path = f"/{self.repo_name}/commits/master")
+            data                            = await ctx.GET(
+                                                        parent_context  = None,
+                                                        resource        = "repos",
+                                                       sub_path         = f"/{self.repo_name}/commits/master")
         
         commit_datetime                     = _parser.parse(data['commit']['author']['date'])
 
@@ -106,8 +108,10 @@ class GitHub_RepoInspector(RepoInspector):
         :rtype: list[str]
         '''
         async with self._init_ctx() as ctx:
-            data                            = await ctx.GET(resource = "repos",
-                                                       sub_path = f"/{self.repo_name}/branches")
+            data                            = await ctx.GET(
+                                                        parent_context  = None,
+                                                        resource        = "repos",
+                                                        sub_path        = f"/{self.repo_name}/branches")
 
         result                              = [b['name'] for b in data]
 
@@ -120,8 +124,10 @@ class GitHub_RepoInspector(RepoInspector):
         '''
         # This provides the first most recent commit, and links to "parent" commits - the commits right before it
         async with self._init_ctx() as ctx:
-            data                            = await ctx.GET(resource = "repos",
-                                                       sub_path = f"/{self.repo_name}/commits/master")
+            data                            = await ctx.GET(
+                                                        parent_context  = None,
+                                                        resource        = "repos",
+                                                        sub_path        = f"/{self.repo_name}/commits/master")
 
             results_dict                    = await self._committed_files_impl(ctx, results_dict_so_far={}, data=data)
 
@@ -207,9 +213,10 @@ class GitHub_RepoInspector(RepoInspector):
 
 
         pr_result                       =  await ctx.POST(
-                                                        resource    = "repos",
-                                                        sub_path    = f"/{self.repo_name}/pulls", 
-                                                        body        = pr_data)
+                                                        parent_context  = scheduling_context,
+                                                        resource        = "repos",
+                                                        sub_path        = f"/{self.repo_name}/pulls", 
+                                                        body            = pr_data)
         if pr_result is None:
             Application.app().log(f"{from_branch}->{to_branch}: no merge needed",
                                   xlabels=scheduling_context.as_xlabel())
@@ -252,9 +259,10 @@ class GitHub_RepoInspector(RepoInspector):
 
 
         merge_result                    =  await ctx.PUT(    
-                                                        resource    = "repos",
-                                                        sub_path    = f"/{self.repo_name}/pulls/{pull_number}/merge", 
-                                                        body        = merge_data)
+                                                        parent_context = scheduling_context,
+                                                        resource        = "repos",
+                                                        sub_path        = f"/{self.repo_name}/pulls/{pull_number}/merge", 
+                                                        body            = merge_data)
 
         Application.app().log(f"{from_branch}->{to_branch}: PR #{pull_number} merged",
                                   xlabels=scheduling_context.as_xlabel())
@@ -333,8 +341,10 @@ class GitHub_RepoInspector(RepoInspector):
         parents                             = data['parents']
 
         for p in parents:
-            p_data                          = await ctx.GET(resource = "repos",
-                                                    sub_path = f"/{self.repo_name}/{p['url']}")
+            p_data                          = await ctx.GET(
+                                                    parent_context  = None,
+                                                    resource        = "repos",
+                                                    sub_path        = f"/{self.repo_name}/{p['url']}")
             results_dict                    = await self._committed_files_impl(ctx, results_dict, p_data)
 
         return results_dict
