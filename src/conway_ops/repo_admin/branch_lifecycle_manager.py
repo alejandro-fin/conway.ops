@@ -307,7 +307,7 @@ class BranchLifecycleManager(RepoAdministration):
         Helper method to do a merge between local branches. It requires that `from_branch` is the current branch.
         '''
         status                                      = await executor.execute("git merge " + str(from_branch))
-        self.log_info(f"'{from_branch}' (local) - {to_branch}' (local):\n\n{status}",
+        self.log_info(f"'{from_branch}' (local) -> '{to_branch}' (local):\n\n{status}",
                       xlabels=parent_context.as_xlabel())
         return status
 
@@ -316,7 +316,7 @@ class BranchLifecycleManager(RepoAdministration):
         Helper method to pull remote to local. It requires that `branch` be the current branch.
         '''
         status                                     = await executor.execute(command = 'git pull')
-        self.log_info(f"{branch} (remote) ->'{branch} (local)':\n\n{status}",
+        self.log_info(f"'{branch}' (remote) ->'{branch}' (local):\n\n{status}",
                       xlabels=parent_context.as_xlabel()) 
         return status
 
@@ -325,7 +325,7 @@ class BranchLifecycleManager(RepoAdministration):
         Helper method to push local to remote. It requires that `branch` be the current branch.
         '''
         status                                      = await executor.execute(command = 'git push')
-        self.log_info(f"{branch}' (local) -> {branch}' (remote):\n\n{status}",
+        self.log_info(f"'{branch}' (local) -> '{branch}' (remote):\n\n{status}",
                       xlabels=parent_context.as_xlabel())
         return status 
 
