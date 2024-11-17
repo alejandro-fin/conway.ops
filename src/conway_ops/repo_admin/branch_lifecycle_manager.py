@@ -582,7 +582,7 @@ class BranchLifecycleManager(RepoAdministration):
         :param parent_context: the SchedulingContext of a "parent". Typical use case would be that
             the "parent" is the SchedulingContext of a caller that directly or indirectly led to the call of this
             method.
-        :type parent_context: conway.async_utils.scheduling_context.SchedlingContext
+        :type parent_context: conway.async_utils.scheduling_context.SchedulingContext
 
         '''
         result_l                                        = []
