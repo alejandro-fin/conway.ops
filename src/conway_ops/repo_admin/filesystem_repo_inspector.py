@@ -314,11 +314,16 @@ class FileSystem_RepoInspector(RepoInspector):
         return result
     
 
-    async def pull_request(self, from_branch, to_branch, title, body):
+    async def pull_request(self, scheduling_context, from_branch, to_branch, title, body):
         '''
         Creates and completes a pull request from the ``from_branch`` to the ``to_branch``.
 
         If anything goes wrong it raises an exception.
+
+        :param scheduling_context: contains information about the stack at the time that this coroutine was created.
+            Typical use case is to reflect in the logs that order in which the code was written (i.e., the logical
+            order) as opposed to the order in which the code is executed asynchronousy.
+        :type scheduling_context: conway.async_utils.scheduling_context.SchedulingContext
 
         :param str from_branch: GIT branch used as the source for the pull request
         :param str to_branch: GIT branch used as the destination for the pull request
@@ -336,25 +341,34 @@ class FileSystem_RepoInspector(RepoInspector):
 
         if to_branch != original_branch:
             status1         = await executor.execute(command = 'git checkout ' + to_branch)
-            Logger.log_info(f"@ '{to_branch}' (local):\n\n{status1}")
+            Logger.log_info(f"@ '{to_branch}' (local):\n\n{status1}",
+                                  xlabels=scheduling_context.as_xlabel())
 
         status2             = await executor.execute(command = 'git merge ' + from_branch)
-        Logger.log_info(f"'{from_branch}' (local) -> '{to_branch}' (local):\n\n{status2}")
+        Logger.log_info(f"'{from_branch}' (local) -> '{to_branch}' (local):\n\n{status2}",
+                                  xlabels=scheduling_context.as_xlabel())
 
         # Restore original branch
         if to_branch != original_branch:
             status3             = await executor.execute(command = 'git checkout ' + original_branch)
-            Logger.log_info(f"@ '{original_branch}' (local):\n\n{status3}")
+            Logger.log_info(f"@ '{original_branch}' (local):\n\n{status3}",
+                                  xlabels=scheduling_context.as_xlabel())
 
-    async def update_local(self, branch):
+    async def update_local(self, scheduling_context, branch):
         '''
         Updates the local repo from the remote, for the given ``branch``.
 
         If anything goes wrong it raises an exception.
 
+        :param scheduling_context: contains information about the stack at the time that this coroutine was created.
+            Typical use case is to reflect in the logs that order in which the code was written (i.e., the logical
+            order) as opposed to the order in which the code is executed asynchronousy.
+        :type scheduling_context: conway.async_utils.scheduling_context.SchedulingContext
+
         :param str branch: repo local branch to update from the remote.
         '''
-        Logger.log_info(f"local = '{self.parent_url}/{self.repo_name}'")
+        Logger.log_info(f"local = '{self.parent_url}/{self.repo_name}'",
+                                  xlabels=scheduling_context.as_xlabel())
         # Remember the original branch that is checked out in the remote, so that later we can go back to it
         original_branch     = await self.current_branch()
 
@@ -362,13 +376,16 @@ class FileSystem_RepoInspector(RepoInspector):
 
         if branch != original_branch:
             status1         = await executor.execute(command = 'git checkout ' + branch)
-            Logger.log_info(f"@ '{branch}' (local):\n\n{status1}")
+            Logger.log_info(f"@ '{branch}' (local):\n\n{status1}",
+                                  xlabels=scheduling_context.as_xlabel())
 
         status2             = await executor.execute(command = 'git pull')
-        Logger.log_info(f"'{branch}' (remote) -> '{branch}' (local):\n\n{status2}")
+        Logger.log_info(f"'{branch}' (remote) -> '{branch}' (local):\n\n{status2}",
+                                  xlabels=scheduling_context.as_xlabel())
 
         # Restore original branch
         if branch != original_branch:
             status3             = await executor.execute(command = 'git checkout ' + original_branch)
-            Logger.log_info(f"@ '{original_branch}' (local):\n\n{status3}")
+            Logger.log_info(f"@ '{original_branch}' (local):\n\n{status3}",
+                                  xlabels=scheduling_context.as_xlabel())
             
