@@ -146,11 +146,16 @@ class GitHub_RepoInspector(RepoInspector):
 
         return aggregated_cfi_l
     
-    async def pull_request(self, from_branch, to_branch, title, body):
+    async def pull_request(self, scheduling_context, from_branch, to_branch, title, body):
         '''
         Creates and completes a pull request from the ``from_branch`` to the ``to_branch``.
 
         If anything goes wrong it raises an exception.
+
+        :param scheduling_context: contains information about the stack at the time that this coroutine was created.
+            Typical use case is to reflect in the logs that order in which the code was written (i.e., the logical
+            order) as opposed to the order in which the code is executed asynchronousy.
+        :type scheduling_context: conway.async_utils.scheduling_context.SchedulingContext
 
         :param str from_branch: GIT branch used as the source for the pull request
         :param str to_branch: GIT branch used as the destination for the pull request
@@ -168,23 +173,31 @@ class GitHub_RepoInspector(RepoInspector):
                 return None
             else:
                 pull_number                 = pr_result['number']
-                return await self._merge_pull_request(ctx, pr_result, f"[PR #{pull_number}] {title}")
+                return await self._merge_pull_request(scheduling_context, ctx, pr_result, f"[PR #{pull_number}] {title}")
     
-    async def _create_pull_request(self, ctx, from_branch, to_branch, title, body):
+    async def _create_pull_request(self, scheduling_context, ctx, from_branch, to_branch, title, body):
         '''
         Creates a pull request from the ``from_branch`` to the ``to_branch``.
 
         If anything goes wrong it raises an exception.
 
+        :param scheduling_context: contains information about the stack at the time that this coroutine was created.
+            Typical use case is to reflect in the logs that order in which the code was written (i.e., the logical
+            order) as opposed to the order in which the code is executed asynchronousy.
+        :type scheduling_context: conway.async_utils.scheduling_context.SchedulingContext
+
         :param conway_ops.util.github_client.GitHub_Client ctx: context for making the HTTP call. It must be non-closed and should not
             be shared with any other threads.
         :param str from_branch: GIT branch used as the source for the pull request
-        :param str to_branch: GIT branch used as the destination for the pull request
+        :param str to_branch: GIT branch used as the destination for the pull request        
+
         :returns: The pull request information. If the pull request was not created for a benign reason
                 (for example, if there are no commits to merge from the `from_branch` to the `to_branch`)
                 it returns None.
 
         :rtype: dict
+
+
         '''    
         pr_data                             = {"title":     title,
                                                "body":      body,
@@ -197,19 +210,26 @@ class GitHub_RepoInspector(RepoInspector):
                                                         sub_path    = f"/{self.repo_name}/pulls", 
                                                         body        = pr_data)
         if pr_result is None:
-            Application.app().log(f"{from_branch}->{to_branch}: no merge needed")
+            Application.app().log(f"{from_branch}->{to_branch}: no merge needed",
+                                  xlabels=scheduling_context.as_xlabel())
             return None
         else:
             pull_number                     = pr_result['number']
-            Application.app().log(f"{from_branch}->{to_branch}: PR #{pull_number} created")
+            Application.app().log(f"{from_branch}->{to_branch}: PR #{pull_number} created",
+                                  xlabels=scheduling_context.as_xlabel())
 
         return pr_result
         
-    async def _merge_pull_request(self, ctx, pr, title):
+    async def _merge_pull_request(self, scheduling_context, ctx, pr, title):
         '''
         Merges a pull request.
 
         If anything goes wrong it raises an exception.
+
+        :param scheduling_context: contains information about the stack at the time that this coroutine was created.
+            Typical use case is to reflect in the logs that order in which the code was written (i.e., the logical
+            order) as opposed to the order in which the code is executed asynchronousy.
+        :type scheduling_context: conway.async_utils.scheduling_context.SchedulingContext
 
         :param conway_ops.util.github_client.GitHub_Client ctx: context for making the HTTP call. It must be non-closed and should not
             be shared with any other threads.
@@ -235,17 +255,23 @@ class GitHub_RepoInspector(RepoInspector):
                                                         sub_path    = f"/{self.repo_name}/pulls/{pull_number}/merge", 
                                                         body        = merge_data)
 
-        Application.app().log(f"{from_branch}->{to_branch}: PR #{pull_number} merged")
+        Application.app().log(f"{from_branch}->{to_branch}: PR #{pull_number} merged",
+                                  xlabels=scheduling_context.as_xlabel())
 
         return merge_result
 
     
-    async def update_local(self, branch):
+    async def update_local(self, scheduling_context, branch):
         '''
         This method is deliberatly not implemented, and will raise an error if called.
 
         The only reason that this method exists is that the parent abstract class mandates it, 
         but for repos in GitHub it does not apply since there is no notion of "local" repo.
+
+        :param scheduling_context: contains information about the stack at the time that this coroutine was created.
+            Typical use case is to reflect in the logs that order in which the code was written (i.e., the logical
+            order) as opposed to the order in which the code is executed asynchronousy.
+        :type scheduling_context: conway.async_utils.scheduling_context.SchedulingContext
 
         :param str branch: repo local branch to update from the remote.
         '''
