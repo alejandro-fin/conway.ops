@@ -70,7 +70,7 @@ class RepoInspector(abc.ABC):
         '''
 
     @abc.abstractmethod
-    async def pull_request(self, from_branch, to_branch, title, body):
+    async def pull_request(self, scheduling_context, from_branch, to_branch, title, body):
         '''
         Creates and completes a pull request from the ``from_branch`` to the ``to_branch``.
 
@@ -79,11 +79,16 @@ class RepoInspector(abc.ABC):
 
 
     @abc.abstractmethod
-    async def update_local(self, branch):
+    async def update_local(self, scheduling_context, branch):
         '''
         Updates the local repo from the remote, for the given ``branch``.
 
         If anything goes wrong it raises an exception.
+
+        :param scheduling_context: contains information about the stack at the time that this coroutine was created.
+            Typical use case is to reflect in the logs that order in which the code was written (i.e., the logical
+            order) as opposed to the order in which the code is executed asynchronousy.
+        :type scheduling_context: conway.async_utils.scheduling_context.SchedulingContext
 
         :param str branch: repo local branch to update from the remote.
         '''

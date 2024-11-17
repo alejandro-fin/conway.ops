@@ -353,11 +353,11 @@ class RepoAdministration():
             untracked_files, modified_files, deleted_files
 
 
-    def log_info(self, msg):
+    def log_info(self, msg, xlabels=None):
         '''
         Logs the ``msg`` at the INFO log level.
 
         :param str msg: Information to be logged
         '''
         #Application.app().log(msg, Logger.LEVEL_INFO, show_caller=False)
-        Logger.log_info(msg)
+        Logger.log_info(msg, stack_level_increase=1, xlabels=xlabels)
