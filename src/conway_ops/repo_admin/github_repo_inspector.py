@@ -168,7 +168,7 @@ class GitHub_RepoInspector(RepoInspector):
         :rtype: dict
         '''    
         async with self._init_ctx() as ctx:
-            pr_result                       =  await self._create_pull_request(ctx, scheduling_context,
+            pr_result                       =  await self._create_pull_request(scheduling_context, ctx,
                                                                                from_branch, to_branch, title, body)
             if pr_result is None:
                 return None
